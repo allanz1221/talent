@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+@theme {
+  --color-guinda: #621132;
+  --color-guinda-light: #98224e;
+  --color-oro: #D4C19C;
+  --color-oro-light: #f4f1ea;
+}

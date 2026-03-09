@@ -1,0 +1,5 @@
+{
+  "name": "TalentLab - Registro de Alumnos",
+  "description": "Interfaz de registro para la detección de talentos en escuelas primarias, incluyendo datos personales, escolares y de medición.",
+  "requestFramePermissions": []
+}
