@@ -280,7 +280,7 @@ export default function App() {
           </button>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Search size={20} className="text-oro" />
-            Talent Scout
+            Talent Lab
           </h1>
         </div>
         <div className="text-[10px] font-bold bg-oro text-guinda px-3 py-1 rounded-full uppercase tracking-wider">
@@ -310,7 +310,7 @@ export default function App() {
                 <div>
                   <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
                     <Search size={24} className="text-oro" />
-                    Talent Scout
+                    Talent Lab
                   </h1>
                   <p className="text-[10px] text-oro/80 mt-1 uppercase tracking-widest font-bold">Gobierno de México</p>
                 </div>
@@ -395,7 +395,7 @@ export default function App() {
         <div className="p-6 border-b border-oro/10 bg-guinda text-white">
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
             <Search size={24} className="text-oro" />
-            Talent Scout
+            Talent Lab
           </h1>
           <p className="text-[10px] text-oro/80 mt-1 uppercase tracking-widest font-bold">Gobierno de México</p>
         </div>
