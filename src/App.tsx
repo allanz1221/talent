@@ -405,6 +405,35 @@ export default function App() {
     }
   };
 
+  const isStationComplete = (stationId: number) => {
+    if (stationId === 1) {
+      return !!(student.primerNombre && student.primerApellido && student.segundoApellido && student.sexo && 
+             student.fechaNacimiento.dia && student.fechaNacimiento.mes && student.fechaNacimiento.año && 
+             student.escuela && student.turno && student.direccion.colonia && student.direccion.numeroExterior);
+    }
+    if (stationId === 2) {
+      return !!(results.peso && results.estatura && measurement.lugar);
+    }
+    if (stationId === 3) return true; // No specific required fields for station 3 (General info)
+    if (stationId === 4) return !!results.flexibilidad;
+    if (stationId === 5) return !!results.velocidad;
+    if (stationId === 6) return !!results.lagartijas;
+    if (stationId === 7) return !!results.abdominales;
+    if (stationId === 8) return !!results.salto;
+    if (stationId === 9) return !!results.resistencia;
+    if (stationId === 10) return true;
+    return false;
+  };
+
+  const isStationUnlocked = (stationId: number) => {
+    if (stationId === 1) return true;
+    // A station is unlocked if all previous stations are complete
+    for (let i = 1; i < stationId; i++) {
+      if (!isStationComplete(i)) return false;
+    }
+    return true;
+  };
+
   const nextStation = () => {
     const newErrors: string[] = [];
     
@@ -536,26 +565,39 @@ export default function App() {
               </div>
 
               <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                {view === 'form' && STATIONS.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      setCurrentStation(s.id);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                      currentStation === s.id 
-                        ? 'bg-oro-light text-guinda border border-oro/30 shadow-sm font-bold' 
-                        : 'text-guinda/60 hover:bg-oro-light/50 hover:text-guinda'
-                    }`}
-                  >
-                    <span className={`p-1.5 rounded-lg ${currentStation === s.id ? 'bg-guinda text-white' : 'bg-oro/10'}`}>
-                      {s.icon}
-                    </span>
-                    {s.name}
-                    {currentStation > s.id && <CheckCircle2 size={14} className="ml-auto text-emerald-600" />}
-                  </button>
-                ))}
+                {view === 'form' && STATIONS.map((s) => {
+                  const unlocked = isStationUnlocked(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        if (unlocked) {
+                          setCurrentStation(s.id);
+                          setIsMobileMenuOpen(false);
+                        }
+                      }}
+                      disabled={!unlocked}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                        currentStation === s.id 
+                          ? 'bg-oro-light text-guinda border border-oro/30 shadow-sm font-bold' 
+                          : unlocked 
+                            ? 'text-guinda/60 hover:bg-oro-light/50 hover:text-guinda'
+                            : 'text-guinda/20 cursor-not-allowed'
+                      }`}
+                    >
+                      <span className={`p-1.5 rounded-lg ${
+                        currentStation === s.id 
+                          ? 'bg-guinda text-white' 
+                          : unlocked ? 'bg-oro/10' : 'bg-oro/5'
+                      }`}>
+                        {s.icon}
+                      </span>
+                      <span className={unlocked ? '' : 'opacity-50'}>{s.name}</span>
+                      {currentStation > s.id && isStationComplete(s.id) && <CheckCircle2 size={14} className="ml-auto text-emerald-600" />}
+                      {!unlocked && <X size={12} className="ml-auto text-guinda/20" />}
+                    </button>
+                  );
+                })}
               </nav>
               <div className="p-6 border-t border-oro/10 space-y-3">
                 {user ? (
@@ -636,23 +678,34 @@ export default function App() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {view === 'form' && STATIONS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setCurrentStation(s.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                currentStation === s.id 
-                  ? 'bg-oro-light text-guinda border border-oro/30 shadow-sm font-bold' 
-                  : 'text-guinda/60 hover:bg-oro-light/50 hover:text-guinda'
-              }`}
-            >
-              <span className={`p-1.5 rounded-lg ${currentStation === s.id ? 'bg-guinda text-white' : 'bg-oro/10'}`}>
-                {s.icon}
-              </span>
-              {s.name}
-              {currentStation > s.id && <CheckCircle2 size={14} className="ml-auto text-emerald-600" />}
-            </button>
-          ))}
+          {view === 'form' && STATIONS.map((s) => {
+            const unlocked = isStationUnlocked(s.id);
+            return (
+              <button
+                key={s.id}
+                onClick={() => unlocked && setCurrentStation(s.id)}
+                disabled={!unlocked}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  currentStation === s.id 
+                    ? 'bg-oro-light text-guinda border border-oro/30 shadow-sm font-bold' 
+                    : unlocked 
+                      ? 'text-guinda/60 hover:bg-oro-light/50 hover:text-guinda'
+                      : 'text-guinda/20 cursor-not-allowed'
+                }`}
+              >
+                <span className={`p-1.5 rounded-lg ${
+                  currentStation === s.id 
+                    ? 'bg-guinda text-white' 
+                    : unlocked ? 'bg-oro/10' : 'bg-oro/5'
+                }`}>
+                  {s.icon}
+                </span>
+                <span className={unlocked ? '' : 'opacity-50'}>{s.name}</span>
+                {currentStation > s.id && isStationComplete(s.id) && <CheckCircle2 size={14} className="ml-auto text-emerald-600" />}
+                {!unlocked && <X size={12} className="ml-auto text-guinda/20" />}
+              </button>
+            );
+          })}
         </nav>
         <div className="p-6 border-t border-oro/10 space-y-3">
           {user ? (
