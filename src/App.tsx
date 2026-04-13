@@ -155,8 +155,15 @@ export default function App() {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login Error:", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        alert("Error: Este dominio no está autorizado en Firebase. Por favor, añade '" + window.location.hostname + "' a la lista de dominios autorizados en la Consola de Firebase (Authentication > Settings > Authorized domains).");
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        // No hacer nada si el usuario cerró la ventana
+      } else {
+        alert("Error al iniciar sesión: " + error.message);
+      }
     }
   };
 
