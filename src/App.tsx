@@ -26,6 +26,7 @@ import {
   LayoutDashboard,
   PlusCircle,
   Trash2,
+  Edit,
   Menu,
   X
 } from 'lucide-react';
@@ -39,7 +40,9 @@ import {
   serverTimestamp,
   doc,
   setDoc,
-  getDoc
+  getDoc,
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { 
   signInWithPopup, 
@@ -72,6 +75,7 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [currentStation, setCurrentStation] = useState(1);
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [student, setStudent] = useState<StudentData>({
     primerNombre: '',
     segundoNombre: '',
@@ -327,13 +331,22 @@ export default function App() {
         ...student,
         results: { ...results },
         evaluation: evaluation ? { ...evaluation } : null,
-        createdBy: user.uid,
-        createdAt: serverTimestamp()
+        updatedAt: serverTimestamp()
       };
 
-      await addDoc(collection(db, 'students'), studentData);
+      if (editingStudentId) {
+        const studentRef = doc(db, 'students', editingStudentId);
+        await updateDoc(studentRef, studentData);
+      } else {
+        await addDoc(collection(db, 'students'), {
+          ...studentData,
+          createdBy: user.uid,
+          createdAt: serverTimestamp()
+        });
+      }
       
       setErrors([]);
+      setEditingStudentId(null);
       
       // Reset form for next student
       setStudent({
@@ -361,6 +374,34 @@ export default function App() {
       setView('dashboard');
     } catch (error) {
       console.error("Error saving student:", error);
+    }
+  };
+
+  const handleEdit = (s: SavedStudent) => {
+    setEditingStudentId(s.id);
+    setStudent({
+      primerNombre: s.primerNombre,
+      segundoNombre: s.segundoNombre,
+      primerApellido: s.primerApellido,
+      segundoApellido: s.segundoApellido,
+      sexo: s.sexo,
+      fechaNacimiento: s.fechaNacimiento,
+      escuela: s.escuela,
+      turno: s.turno,
+      direccion: s.direccion
+    });
+    setResults(s.results);
+    setCurrentStation(1);
+    setView('form');
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este registro?')) {
+      try {
+        await deleteDoc(doc(db, 'students', id));
+      } catch (error) {
+        console.error("Error deleting student:", error);
+      }
     }
   };
 
@@ -627,7 +668,12 @@ export default function App() {
                 </button>
               </div>
               <div className="bg-oro-light rounded-xl p-4 border border-oro/20">
-                <p className="text-[10px] font-bold text-guinda/60 uppercase mb-2">Alumno Actual</p>
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-[10px] font-bold text-guinda/60 uppercase">Alumno Actual</p>
+                  {editingStudentId && (
+                    <span className="text-[8px] bg-guinda text-white px-1.5 py-0.5 rounded-full font-black animate-pulse">EDITANDO</span>
+                  )}
+                </div>
                 <p className="text-sm font-bold text-guinda truncate">{student.primerNombre || 'Sin nombre'} {student.primerApellido}</p>
                 <p className="text-xs text-guinda/50 mt-1">{age > 0 ? `${age} años` : 'Edad por definir'}</p>
               </div>
@@ -808,12 +854,22 @@ export default function App() {
                             <p className="text-[10px] font-bold text-guinda/40 uppercase">Puntos</p>
                             <p className="text-xl font-black text-guinda">{s.evaluation?.totalPoints || 0}</p>
                           </div>
-                          <button 
-                            onClick={() => setSavedStudents(prev => prev.filter(item => item.id !== s.id))}
-                            className="p-3 text-oro/40 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                          >
-                            <Trash2 size={20} />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={() => handleEdit(s)}
+                              className="p-2 text-oro/40 hover:text-guinda hover:bg-oro-light rounded-xl transition-all"
+                              title="Editar"
+                            >
+                              <Edit size={18} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(s.id)}
+                              className="p-2 text-oro/40 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1351,7 +1407,7 @@ export default function App() {
                               onClick={handleSave}
                               className="w-full bg-guinda text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-guinda-light transition-all flex items-center justify-center gap-2 shadow-xl shadow-guinda/30 border-b-4 border-guinda-light"
                             >
-                              <Save size={20} /> Guardar Registro
+                              <Save size={20} /> {editingStudentId ? 'Actualizar Registro' : 'Guardar Registro'}
                             </button>
                           </div>
                         </div>
