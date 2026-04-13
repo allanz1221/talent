@@ -48,4 +48,5 @@ export interface EvaluationResult {
   totalPoints: number;
   classification: string;
   isTalentInHeight: boolean;
+  recommendedSports: string[];
 }

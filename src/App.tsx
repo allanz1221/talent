@@ -105,6 +105,39 @@ export default function App() {
   });
 
   const [errors, setErrors] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<'date' | 'name' | 'score' | 'best_sport'>('date');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const sortedStudents = useMemo(() => {
+    let students = [...savedStudents];
+
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      students = students.filter(s => {
+        const fullName = `${s.primerNombre} ${s.segundoNombre} ${s.primerApellido} ${s.segundoApellido}`.toLowerCase();
+        return fullName.includes(term);
+      });
+    }
+
+    switch (sortBy) {
+      case 'name':
+        return students.sort((a, b) => a.primerApellido.localeCompare(b.primerApellido));
+      case 'score':
+        return students.sort((a, b) => (b.evaluation?.totalPoints || 0) - (a.evaluation?.totalPoints || 0));
+      case 'best_sport':
+        return students.sort((a, b) => {
+          const percentilesA = a.evaluation?.percentiles;
+          const percentilesB = b.evaluation?.percentiles;
+          
+          const maxA = percentilesA ? Math.max(...Object.values(percentilesA) as number[]) : 0;
+          const maxB = percentilesB ? Math.max(...Object.values(percentilesB) as number[]) : 0;
+          return maxB - maxA;
+        });
+      default:
+        return students;
+    }
+  }, [savedStudents, sortBy, searchTerm]);
 
   // Auth & Firestore Sync
   useEffect(() => {
@@ -244,6 +277,17 @@ export default function App() {
     const heightTalentThreshold = isMale ? norms.HEIGHT_TALENT_MALE[age] : norms.HEIGHT_TALENT_FEMALE[age];
     const isTalentInHeight = parseFloat(results.estatura) >= heightTalentThreshold;
 
+    // Recommend sports based on high percentiles (> 70)
+    const recommendedSports: string[] = [];
+    if (pVelocidad >= 70) recommendedSports.push('Atletismo (Velocidad)', 'Fútbol', 'Básquetbol');
+    if (pSalto >= 70) recommendedSports.push('Voleibol', 'Básquetbol', 'Salto de Longitud');
+    if (pResistencia >= 70) recommendedSports.push('Atletismo (Fondo)', 'Ciclismo', 'Natación');
+    if (pLagartijas >= 70 || pAbdominales >= 70) recommendedSports.push('Gimnasia', 'Lucha', 'Halterofilia');
+    if (isTalentInHeight) recommendedSports.push('Básquetbol (Talento por Estatura)', 'Voleibol (Talento por Estatura)');
+
+    // Remove duplicates and limit to top 4
+    const uniqueSports = Array.from(new Set(recommendedSports)).slice(0, 4);
+
     return {
       percentiles: {
         velocidad: pVelocidad,
@@ -254,7 +298,8 @@ export default function App() {
       },
       totalPoints,
       classification,
-      isTalentInHeight
+      isTalentInHeight,
+      recommendedSports: uniqueSports
     };
   }, [student.sexo, age, results]);
 
@@ -643,6 +688,45 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-guinda/40" size={20} />
+                <input 
+                  type="text"
+                  placeholder="Buscar alumno por nombre o apellido..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-white border border-oro/20 rounded-2xl py-4 pl-12 pr-4 text-sm font-medium text-guinda placeholder:text-guinda/30 focus:outline-none focus:ring-2 focus:ring-guinda/10 shadow-sm transition-all"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-oro/10 shadow-sm">
+                <span className="text-[10px] font-bold text-guinda/40 uppercase px-2">Filtrar por:</span>
+                <button 
+                  onClick={() => setSortBy('date')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${sortBy === 'date' ? 'bg-guinda text-white' : 'text-guinda/60 hover:bg-oro-light'}`}
+                >
+                  Recientes
+                </button>
+                <button 
+                  onClick={() => setSortBy('name')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${sortBy === 'name' ? 'bg-guinda text-white' : 'text-guinda/60 hover:bg-oro-light'}`}
+                >
+                  Apellido A-Z
+                </button>
+                <button 
+                  onClick={() => setSortBy('score')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${sortBy === 'score' ? 'bg-guinda text-white' : 'text-guinda/60 hover:bg-oro-light'}`}
+                >
+                  Mayor Puntuación
+                </button>
+                <button 
+                  onClick={() => setSortBy('best_sport')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${sortBy === 'best_sport' ? 'bg-guinda text-white' : 'text-guinda/60 hover:bg-oro-light'}`}
+                >
+                  Mejor Deporte
+                </button>
+              </div>
+
               <div className="grid gap-4">
                 {savedStudents.length === 0 ? (
                   <div className="bg-white rounded-3xl p-12 text-center border border-oro/20 border-dashed">
@@ -658,8 +742,22 @@ export default function App() {
                       Nuevo Registro
                     </button>
                   </div>
+                ) : sortedStudents.length === 0 ? (
+                  <div className="bg-white rounded-3xl p-12 text-center border border-oro/20 border-dashed">
+                    <div className="w-16 h-16 bg-oro-light rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Search className="text-guinda" size={32} />
+                    </div>
+                    <h3 className="text-lg font-bold text-guinda">Sin coincidencias</h3>
+                    <p className="text-guinda/40">No encontramos alumnos que coincidan con "{searchTerm}".</p>
+                    <button 
+                      onClick={() => setSearchTerm('')}
+                      className="mt-4 text-guinda font-bold hover:underline"
+                    >
+                      Limpiar búsqueda
+                    </button>
+                  </div>
                 ) : (
-                  savedStudents.map((s) => (
+                  sortedStudents.map((s) => (
                     <div key={s.id} className="bg-white rounded-3xl p-6 border border-oro/10 shadow-sm hover:shadow-md transition-all group">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
@@ -683,6 +781,15 @@ export default function App() {
                                 <Clock size={12} /> {s.turno}
                               </span>
                             </div>
+                            {s.evaluation?.recommendedSports && s.evaluation.recommendedSports.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {s.evaluation.recommendedSports.slice(0, 3).map((sport, idx) => (
+                                  <span key={idx} className="text-[9px] font-black text-guinda/60 bg-oro/5 px-2 py-0.5 rounded-md border border-oro/10">
+                                    {sport}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                         
@@ -1219,6 +1326,22 @@ export default function App() {
                                     <p className="text-xs font-black uppercase tracking-tight">
                                       Talento por Estatura: Cumple con la norma del percentil 97.
                                     </p>
+                                  </div>
+                                )}
+
+                                {evaluation.recommendedSports.length > 0 && (
+                                  <div className="p-4 bg-white rounded-2xl border border-oro/20 shadow-sm">
+                                    <h4 className="font-black text-guinda mb-3 flex items-center gap-2 uppercase text-[10px] tracking-wider">
+                                      <Trophy size={14} className="text-oro" />
+                                      Deportes Recomendados
+                                    </h4>
+                                    <div className="flex flex-wrap gap-2">
+                                      {evaluation.recommendedSports.map((sport, idx) => (
+                                        <span key={idx} className="bg-oro-light text-guinda px-2 py-1 rounded-lg text-[9px] font-black uppercase border border-oro/20">
+                                          {sport}
+                                        </span>
+                                      ))}
+                                    </div>
                                   </div>
                                 )}
                               </div>
