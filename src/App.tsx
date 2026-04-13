@@ -1514,7 +1514,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setDeleteModalOpen(false)}
-            className="absolute inset-0 bg-guinda/40"
+            className="absolute inset-0 bg-transparent"
           />
           <motion.div
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
