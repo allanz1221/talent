@@ -27,6 +27,7 @@ import {
   PlusCircle,
   Trash2,
   Edit,
+  AlertTriangle,
   Menu,
   X
 } from 'lucide-react';
@@ -76,6 +77,8 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [currentStation, setCurrentStation] = useState(1);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const [student, setStudent] = useState<StudentData>({
     primerNombre: '',
     segundoNombre: '',
@@ -395,10 +398,17 @@ export default function App() {
     setView('form');
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este registro?')) {
+  const handleDelete = (id: string) => {
+    setStudentToDelete(id);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (studentToDelete) {
       try {
-        await deleteDoc(doc(db, 'students', id));
+        await deleteDoc(doc(db, 'students', studentToDelete));
+        setDeleteModalOpen(false);
+        setStudentToDelete(null);
       } catch (error) {
         console.error("Error deleting student:", error);
       }
@@ -1494,6 +1504,55 @@ export default function App() {
         )}
       </div>
     </main>
+
+    {/* Custom Delete Confirmation Modal */}
+    <AnimatePresence>
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setDeleteModalOpen(false)}
+            className="absolute inset-0 bg-guinda/40 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            className="relative bg-white rounded-[32px] shadow-2xl border border-oro/20 p-8 max-w-md w-full overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-oro via-guinda to-oro" />
+            
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center text-rose-600 mb-2 border-2 border-rose-100">
+                <AlertTriangle size={40} />
+              </div>
+              
+              <h3 className="text-2xl font-black text-guinda uppercase tracking-tight">¿Eliminar Registro?</h3>
+              <p className="text-guinda/60 font-medium">
+                Esta acción es permanente y no se podrá recuperar la información del alumno.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4 w-full mt-6">
+                <button
+                  onClick={() => setDeleteModalOpen(false)}
+                  className="px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-guinda bg-oro-light hover:bg-oro/20 transition-all border-b-4 border-oro/10"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-white bg-rose-600 hover:bg-rose-700 transition-all border-b-4 border-rose-800 shadow-lg shadow-rose-200"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   </div>
   );
 }
