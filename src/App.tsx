@@ -1179,7 +1179,7 @@ export default function App() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-guinda/60 uppercase">Fecha (Capturada Automáticamente)</label>
+                            <label className="text-xs font-bold text-guinda/60 uppercase">Fecha</label>
                             <div className="flex items-center gap-2 px-4 py-3 bg-oro-light/50 border border-oro/20 rounded-xl text-guinda font-bold">
                               <Calendar size={18} className="text-oro" />
                               {measurement.fecha.dia}/{measurement.fecha.mes}/{measurement.fecha.año}
