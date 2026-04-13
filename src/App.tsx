@@ -492,7 +492,7 @@ export default function App() {
           </h1>
         </div>
         <div className="text-[10px] font-bold bg-oro text-guinda px-3 py-1 rounded-full uppercase tracking-wider">
-          {view === 'form' ? `Estación ${currentStation}/10` : 'Dashboard'}
+          {view === 'form' ? `Estación ${currentStation}/10` : 'Registros'}
         </div>
       </div>
 
@@ -556,7 +556,7 @@ export default function App() {
                   }`}
                 >
                   <LayoutDashboard size={18} />
-                  Dashboard
+                  Registros
                 </button>
               </div>
 
@@ -669,7 +669,7 @@ export default function App() {
             }`}
           >
             <LayoutDashboard size={18} />
-            Dashboard
+            Registros
           </button>
         </div>
 
@@ -773,7 +773,7 @@ export default function App() {
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-3xl font-black text-guinda">Dashboard</h2>
+                  <h2 className="text-3xl font-black text-guinda">Registros</h2>
                   <p className="text-guinda/60">Registros guardados en el sistema nacional</p>
                 </div>
                 <div className="bg-white px-6 py-3 rounded-2xl border border-oro/20 shadow-sm flex items-center gap-4">
@@ -1460,7 +1460,7 @@ export default function App() {
                               onClick={handleSave}
                               className="w-full bg-guinda text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-guinda-light transition-all flex items-center justify-center gap-2 shadow-xl shadow-guinda/30 border-b-4 border-guinda-light"
                             >
-                              <Save size={20} /> {editingStudentId ? 'Actualizar Registro' : 'Guardar Registro'}
+                              <Save size={20} /> {editingStudentId ? 'Actualizar' : 'Guardar'}
                             </button>
                           </div>
                         </div>
