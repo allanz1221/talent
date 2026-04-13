@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required, email format)
+    //   - displayName: string (optional)
+    //   - role: string (required, 'admin' or 'scout')
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: students
+    // Document ID: {studentId}
+    // Fields:
+    //   - id: string (required)
+    //   - primerNombre: string (required)
+    //   - primerApellido: string (required)
+    //   - sexo: string (required, 'M' or 'F')
+    //   - escuela: string (required)
+    //   - createdBy: string (required, uid)
+    //   - createdAt: timestamp (required)
+    //   [Other fields: results, evaluation, etc.]
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "ayalavz816@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.role in ['admin', 'scout'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['primerNombre', 'primerApellido', 'sexo', 'escuela', 'createdBy', 'createdAt']) &&
+             data.primerNombre is string && data.primerNombre.size() < 100 &&
+             data.primerApellido is string && data.primerApellido.size() < 100 &&
+             data.sexo in ['M', 'F'] &&
+             data.escuela is string &&
+             data.createdBy == request.auth.uid &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAdmin() && isValidUser(request.resource.data);
+    }
+
+    match /students/{studentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidStudent(request.resource.data);
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.createdBy || isAdmin()) && isValidStudent(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

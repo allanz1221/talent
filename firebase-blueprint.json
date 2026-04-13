@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "scout"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student measurement and evaluation record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "primerNombre": { "type": "string" },
+        "segundoNombre": { "type": "string" },
+        "primerApellido": { "type": "string" },
+        "segundoApellido": { "type": "string" },
+        "sexo": { "type": "string", "enum": ["M", "F"] },
+        "fechaNacimiento": {
+          "type": "object",
+          "properties": {
+            "dia": { "type": "string" },
+            "mes": { "type": "string" },
+            "año": { "type": "string" }
+          }
+        },
+        "escuela": { "type": "string" },
+        "turno": { "type": "string", "enum": ["Matutino", "Vespertino"] },
+        "direccion": {
+          "type": "object",
+          "properties": {
+            "colonia": { "type": "string" },
+            "numeroExterior": { "type": "string" },
+            "numeroInterior": { "type": "string" }
+          }
+        },
+        "results": {
+          "type": "object",
+          "properties": {
+            "peso": { "type": "string" },
+            "estatura": { "type": "string" },
+            "flexibilidad": { "type": "string" },
+            "velocidad": { "type": "string" },
+            "lagartijas": { "type": "string" },
+            "abdominales": { "type": "string" },
+            "salto": { "type": "string" },
+            "resistencia": { "type": "string" }
+          }
+        },
+        "evaluation": {
+          "type": "object",
+          "properties": {
+            "totalPoints": { "type": "number" },
+            "classification": { "type": "string" },
+            "isTalentInHeight": { "type": "boolean" }
+          }
+        },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["primerNombre", "primerApellido", "sexo", "escuela", "createdBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Student records"
+    }
+  }
+}

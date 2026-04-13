@@ -30,6 +30,25 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  collection, 
+  addDoc, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  serverTimestamp,
+  doc,
+  setDoc,
+  getDoc
+} from 'firebase/firestore';
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  onAuthStateChanged,
+  User as FirebaseUser,
+  signOut
+} from 'firebase/auth';
+import { db, auth } from './firebase';
 import { StudentData, TestResults, EvaluationResult, SavedStudent } from './types';
 import * as norms from './data/norms';
 
@@ -50,6 +69,8 @@ export default function App() {
   const [view, setView] = useState<'form' | 'dashboard'>('form');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [savedStudents, setSavedStudents] = useState<SavedStudent[]>([]);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [currentStation, setCurrentStation] = useState(1);
   const [student, setStudent] = useState<StudentData>({
     primerNombre: '',
@@ -84,6 +105,62 @@ export default function App() {
   });
 
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Auth & Firestore Sync
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      setIsAuthReady(true);
+
+      if (currentUser) {
+        // Ensure user document exists
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) {
+          await setDoc(userRef, {
+            uid: currentUser.uid,
+            email: currentUser.email,
+            displayName: currentUser.displayName,
+            role: 'scout',
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setSavedStudents([]);
+      return;
+    }
+
+    const q = query(collection(db, 'students'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const students = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as SavedStudent[];
+      setSavedStudents(students);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login Error:", error);
+    }
+  };
+
+  const handleLogout = () => signOut(auth);
 
   // Calculate age based on the year of birth vs current year (as per PDF rule)
   const age = useMemo(() => {
@@ -190,40 +267,49 @@ export default function App() {
     setResults(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = () => {
-    const newSavedStudent: SavedStudent = {
-      ...student,
-      id: crypto.randomUUID(),
-      results: { ...results },
-      evaluation: evaluation ? { ...evaluation } : null
-    };
-    setSavedStudents(prev => [newSavedStudent, ...prev]);
-    setErrors([]);
-    
-    // Reset form for next student
-    setStudent({
-      primerNombre: '',
-      segundoNombre: '',
-      primerApellido: '',
-      segundoApellido: '',
-      sexo: '',
-      fechaNacimiento: { dia: '', mes: '', año: '' },
-      escuela: '',
-      turno: '',
-      direccion: { colonia: '', numeroExterior: '', numeroInterior: '' }
-    });
-    setResults({
-      peso: '',
-      estatura: '',
-      flexibilidad: '',
-      velocidad: '',
-      lagartijas: '',
-      abdominales: '',
-      salto: '',
-      resistencia: ''
-    });
-    setCurrentStation(1);
-    setView('dashboard');
+  const handleSave = async () => {
+    if (!user) return;
+
+    try {
+      const studentData = {
+        ...student,
+        results: { ...results },
+        evaluation: evaluation ? { ...evaluation } : null,
+        createdBy: user.uid,
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'students'), studentData);
+      
+      setErrors([]);
+      
+      // Reset form for next student
+      setStudent({
+        primerNombre: '',
+        segundoNombre: '',
+        primerApellido: '',
+        segundoApellido: '',
+        sexo: '',
+        fechaNacimiento: { dia: '', mes: '', año: '' },
+        escuela: '',
+        turno: '',
+        direccion: { colonia: '', numeroExterior: '', numeroInterior: '' }
+      });
+      setResults({
+        peso: '',
+        estatura: '',
+        flexibilidad: '',
+        velocidad: '',
+        lagartijas: '',
+        abdominales: '',
+        salto: '',
+        resistencia: ''
+      });
+      setCurrentStation(1);
+      setView('dashboard');
+    } catch (error) {
+      console.error("Error saving student:", error);
+    }
   };
 
   const nextStation = () => {
@@ -378,12 +464,33 @@ export default function App() {
                   </button>
                 ))}
               </nav>
-              <div className="p-6 border-t border-oro/10">
-                <div className="bg-oro-light rounded-xl p-4 border border-oro/20">
-                  <p className="text-[10px] font-bold text-guinda/60 uppercase mb-2">Alumno Actual</p>
-                  <p className="text-sm font-bold text-guinda truncate">{student.primerNombre || 'Sin nombre'} {student.primerApellido}</p>
-                  <p className="text-xs text-guinda/50 mt-1">{age > 0 ? `${age} años` : 'Edad por definir'}</p>
-                </div>
+              <div className="p-6 border-t border-oro/10 space-y-3">
+                {user ? (
+                  <>
+                    <div className="bg-oro-light rounded-xl p-4 border border-oro/20">
+                      <p className="text-[10px] font-bold text-guinda/60 uppercase mb-2">Usuario</p>
+                      <p className="text-sm font-bold text-guinda truncate">{user.displayName || user.email}</p>
+                      <button 
+                        onClick={handleLogout}
+                        className="text-[10px] text-rose-600 font-bold uppercase mt-2 hover:underline"
+                      >
+                        Cerrar Sesión
+                      </button>
+                    </div>
+                    <div className="bg-oro-light rounded-xl p-4 border border-oro/20">
+                      <p className="text-[10px] font-bold text-guinda/60 uppercase mb-2">Alumno Actual</p>
+                      <p className="text-sm font-bold text-guinda truncate">{student.primerNombre || 'Sin nombre'} {student.primerApellido}</p>
+                      <p className="text-xs text-guinda/50 mt-1">{age > 0 ? `${age} años` : 'Edad por definir'}</p>
+                    </div>
+                  </>
+                ) : (
+                  <button 
+                    onClick={handleLogin}
+                    className="w-full bg-guinda text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-guinda/20"
+                  >
+                    Iniciar Sesión
+                  </button>
+                )}
               </div>
             </motion.div>
           </>
@@ -454,12 +561,33 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="p-6 border-t border-oro/10">
-          <div className="bg-oro-light rounded-xl p-4 border border-oro/20">
-            <p className="text-[10px] font-bold text-guinda/60 uppercase mb-2">Alumno Actual</p>
-            <p className="text-sm font-bold text-guinda truncate">{student.primerNombre || 'Sin nombre'} {student.primerApellido}</p>
-            <p className="text-xs text-guinda/50 mt-1">{age > 0 ? `${age} años` : 'Edad por definir'}</p>
-          </div>
+        <div className="p-6 border-t border-oro/10 space-y-3">
+          {user ? (
+            <>
+              <div className="bg-oro-light rounded-xl p-4 border border-oro/20">
+                <p className="text-[10px] font-bold text-guinda/60 uppercase mb-2">Usuario</p>
+                <p className="text-sm font-bold text-guinda truncate">{user.displayName || user.email}</p>
+                <button 
+                  onClick={handleLogout}
+                  className="text-[10px] text-rose-600 font-bold uppercase mt-2 hover:underline"
+                >
+                  Cerrar Sesión
+                </button>
+              </div>
+              <div className="bg-oro-light rounded-xl p-4 border border-oro/20">
+                <p className="text-[10px] font-bold text-guinda/60 uppercase mb-2">Alumno Actual</p>
+                <p className="text-sm font-bold text-guinda truncate">{student.primerNombre || 'Sin nombre'} {student.primerApellido}</p>
+                <p className="text-xs text-guinda/50 mt-1">{age > 0 ? `${age} años` : 'Edad por definir'}</p>
+              </div>
+            </>
+          ) : (
+            <button 
+              onClick={handleLogin}
+              className="w-full bg-guinda text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-guinda/20"
+            >
+              Iniciar Sesión
+            </button>
+          )}
         </div>
       </div>
 
@@ -469,7 +597,24 @@ export default function App() {
           {/* Mobile Header - Hidden because we have the fixed one now */}
           <div className="lg:hidden mb-6"></div>
 
-          {view === 'dashboard' ? (
+          {!user && isAuthReady ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-oro/20 shadow-xl">
+              <div className="w-20 h-20 bg-oro-light rounded-full flex items-center justify-center mx-auto mb-6">
+                <User className="text-guinda" size={40} />
+              </div>
+              <h2 className="text-2xl font-black text-guinda mb-2">Acceso Restringido</h2>
+              <p className="text-guinda/60 mb-8 max-w-md mx-auto">
+                Por favor, inicia sesión con tu cuenta institucional para acceder al sistema de Talent Lab y gestionar los registros.
+              </p>
+              <button 
+                onClick={handleLogin}
+                className="bg-guinda text-white px-10 py-4 rounded-2xl font-black text-lg hover:bg-guinda-light transition-all shadow-xl shadow-guinda/20 flex items-center gap-3 mx-auto"
+              >
+                <Search size={24} className="text-oro" />
+                Iniciar Sesión con Google
+              </button>
+            </div>
+          ) : view === 'dashboard' ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
