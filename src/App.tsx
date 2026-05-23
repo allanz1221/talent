@@ -55,17 +55,18 @@ import {
 import { db, auth } from './firebase';
 import { StudentData, TestResults, EvaluationResult, SavedStudent } from './types';
 import * as norms from './data/norms';
+import { TestIllustration } from './components/TestIllustration';
 
 const STATIONS = [
   { id: 1, name: 'Recepción', icon: <User size={18} /> },
   { id: 2, name: 'Peso y Estatura', icon: <Weight size={18} /> },
   { id: 3, name: 'Calentamiento', icon: <Activity size={18} /> },
-  { id: 4, name: 'Flexibilidad', icon: <Ruler size={18} /> },
-  { id: 5, name: 'Velocidad', icon: <Clock size={18} /> },
-  { id: 6, name: 'Fuerza Superior', icon: <Activity size={18} /> },
-  { id: 7, name: 'Fuerza Abdomen', icon: <Activity size={18} /> },
-  { id: 8, name: 'Fuerza Inferior', icon: <Activity size={18} /> },
-  { id: 9, name: 'Resistencia', icon: <Clock size={18} /> },
+  { id: 4, name: 'Flexibilidad (sit and reach)', icon: <Ruler size={18} /> },
+  { id: 5, name: 'Velocidad (carrera de velocidad)', icon: <Clock size={18} /> },
+  { id: 6, name: 'Fuerza superior (lagartijas)', icon: <Activity size={18} /> },
+  { id: 7, name: 'Fuerza abdomen (abdominales)', icon: <Activity size={18} /> },
+  { id: 8, name: 'Fuerza inferior (salto de longitud)', icon: <Activity size={18} /> },
+  { id: 9, name: 'Resistencia (carrera de resistencia)', icon: <Clock size={18} /> },
   { id: 10, name: 'Evaluación', icon: <Trophy size={18} /> },
 ];
 
@@ -88,7 +89,12 @@ export default function App() {
     fechaNacimiento: { dia: '', mes: '', año: '' },
     escuela: '',
     turno: '',
-    direccion: { colonia: '', numeroExterior: '', numeroInterior: '' }
+    direccion: { colonia: '', numeroExterior: '', numeroInterior: '' },
+    profesorEducacionFisica: '',
+    practicaDeporte: '',
+    deporteCual: '',
+    entrenadorNombre: '',
+    cumplioCalentamiento: ''
   });
 
   const [results, setResults] = useState<TestResults>({
@@ -361,7 +367,12 @@ export default function App() {
         fechaNacimiento: { dia: '', mes: '', año: '' },
         escuela: '',
         turno: '',
-        direccion: { colonia: '', numeroExterior: '', numeroInterior: '' }
+        direccion: { colonia: '', numeroExterior: '', numeroInterior: '' },
+        profesorEducacionFisica: '',
+        practicaDeporte: '',
+        deporteCual: '',
+        entrenadorNombre: '',
+        cumplioCalentamiento: ''
       });
       setResults({
         peso: '',
@@ -391,7 +402,12 @@ export default function App() {
       fechaNacimiento: s.fechaNacimiento,
       escuela: s.escuela,
       turno: s.turno,
-      direccion: s.direccion
+      direccion: s.direccion,
+      profesorEducacionFisica: s.profesorEducacionFisica || '',
+      practicaDeporte: s.practicaDeporte || '',
+      deporteCual: s.deporteCual || '',
+      entrenadorNombre: s.entrenadorNombre || '',
+      cumplioCalentamiento: s.cumplioCalentamiento || ''
     });
     setResults(s.results);
     setCurrentStation(1);
@@ -417,14 +433,22 @@ export default function App() {
 
   const isStationComplete = (stationId: number) => {
     if (stationId === 1) {
-      return !!(student.primerNombre && student.primerApellido && student.segundoApellido && student.sexo && 
+      const basicComplete = !!(student.primerNombre && student.primerApellido && student.segundoApellido && student.sexo && 
              student.fechaNacimiento.dia && student.fechaNacimiento.mes && student.fechaNacimiento.año && 
-             student.escuela && student.turno && student.direccion.colonia && student.direccion.numeroExterior);
+             student.escuela && student.turno && student.direccion.colonia && student.direccion.numeroExterior &&
+             student.profesorEducacionFisica && student.practicaDeporte);
+      if (!basicComplete) return false;
+      if (student.practicaDeporte === 'Sí') {
+        return !!(student.deporteCual && student.entrenadorNombre);
+      }
+      return true;
     }
     if (stationId === 2) {
       return !!(results.peso && results.estatura && measurement.lugar);
     }
-    if (stationId === 3) return true; // No specific required fields for station 3 (General info)
+    if (stationId === 3) {
+      return student.cumplioCalentamiento === 'Sí' || student.cumplioCalentamiento === 'No';
+    }
     if (stationId === 4) return !!results.flexibilidad;
     if (stationId === 5) return !!results.velocidad;
     if (stationId === 6) return !!results.lagartijas;
@@ -457,10 +481,18 @@ export default function App() {
       if (!student.turno) newErrors.push('turno');
       if (!student.direccion.colonia) newErrors.push('colonia');
       if (!student.direccion.numeroExterior) newErrors.push('numeroExterior');
+      if (!student.profesorEducacionFisica) newErrors.push('profesorEducacionFisica');
+      if (!student.practicaDeporte) newErrors.push('practicaDeporte');
+      if (student.practicaDeporte === 'Sí') {
+        if (!student.deporteCual) newErrors.push('deporteCual');
+        if (!student.entrenadorNombre) newErrors.push('entrenadorNombre');
+      }
     } else if (currentStation === 2) {
       if (!results.peso) newErrors.push('peso');
       if (!results.estatura) newErrors.push('estatura');
       if (!measurement.lugar) newErrors.push('lugar');
+    } else if (currentStation === 3) {
+      if (!student.cumplioCalentamiento) newErrors.push('cumplioCalentamiento');
     } else if (currentStation === 4) {
       if (!results.flexibilidad) newErrors.push('flexibilidad');
     } else if (currentStation === 5) {
@@ -1120,6 +1152,109 @@ export default function App() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Información de Deporte y Educación Física */}
+                      <div className="pt-6 border-t border-oro/10 space-y-6">
+                        <h3 className="text-sm font-bold text-guinda/60 uppercase flex items-center gap-2">
+                          <School size={14} className="text-oro" /> Información Deportiva y de Educación Física
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Profesor de Educación Física */}
+                          <div className="space-y-3 md:col-span-2">
+                            <label className="text-xs font-bold text-guinda/60 uppercase block">Nombre del Prof. de Educ. Física *</label>
+                            
+                            {/* Quick Select Buttons */}
+                            <div className="flex flex-wrap gap-2">
+                              {['Prof. Juan Pérez', 'Profa. María Gómez', 'Prof. Carlos Ruiz', 'Otro'].map(name => {
+                                const isSelected = student.profesorEducacionFisica === name || (name === 'Otro' && student.profesorEducacionFisica !== '' && !['Prof. Juan Pérez', 'Profa. María Gómez', 'Prof. Carlos Ruiz'].includes(student.profesorEducacionFisica));
+                                return (
+                                  <button
+                                    key={name}
+                                    type="button"
+                                    onClick={() => {
+                                      if (name === 'Otro') {
+                                        handleStudentChange('profesorEducacionFisica', '');
+                                      } else {
+                                        handleStudentChange('profesorEducacionFisica', name);
+                                      }
+                                    }}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                                      isSelected
+                                        ? 'bg-guinda text-white border-guinda shadow-lg shadow-guinda/10'
+                                        : 'bg-white text-guinda/60 border-oro/25 hover:border-oro/50 hover:bg-oro-light/20'
+                                    }`}
+                                  >
+                                    {name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <input 
+                              type="text" 
+                              placeholder="Nombre completo del profesor de Educación Física"
+                              value={student.profesorEducacionFisica}
+                              onChange={(e) => handleStudentChange('profesorEducacionFisica', e.target.value)}
+                              className={`w-full px-4 py-3 bg-white border ${errors.includes('profesorEducacionFisica') ? 'border-rose-500 ring-1 ring-rose-500' : 'border-oro/20'} rounded-xl focus:ring-2 focus:ring-guinda/20 outline-none`}
+                            />
+                          </div>
+
+                          {/* ¿Practica algún deporte? */}
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-xs font-bold text-guinda/60 uppercase block">¿Practica algún deporte? *</label>
+                            <div className={`grid grid-cols-2 gap-4 p-1 rounded-2xl ${errors.includes('practicaDeporte') ? 'bg-rose-50 ring-1 ring-rose-500' : ''}`}>
+                              <button
+                                type="button"
+                                onClick={() => handleStudentChange('practicaDeporte', 'Sí')}
+                                className={`py-3 rounded-xl border-2 font-black transition-all text-xs tracking-widest ${student.practicaDeporte === 'Sí' ? 'bg-guinda border-guinda text-white shadow-lg shadow-guinda/20' : 'bg-white border-oro/20 text-guinda/40 hover:border-oro/40'}`}
+                              >
+                                {student.practicaDeporte === 'Sí' ? '✓ ' : ''}SÍ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleStudentChange('practicaDeporte', 'No');
+                                  handleStudentChange('deporteCual', '');
+                                  handleStudentChange('entrenadorNombre', '');
+                                }}
+                                className={`py-3 rounded-xl border-2 font-black transition-all text-xs tracking-widest ${student.practicaDeporte === 'No' ? 'bg-guinda border-guinda text-white shadow-lg shadow-guinda/20' : 'bg-white border-oro/20 text-guinda/40 hover:border-oro/40'}`}
+                              >
+                                {student.practicaDeporte === 'No' ? '✓ ' : ''}NO
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Conditional fields */}
+                          {student.practicaDeporte === 'Sí' && (
+                            <motion.div 
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              className="grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2"
+                            >
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-guinda/60 uppercase">¿Qué deporte? *</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="Ej. Fútbol, Baloncesto, Natación"
+                                  value={student.deporteCual}
+                                  onChange={(e) => handleStudentChange('deporteCual', e.target.value)}
+                                  className={`w-full px-4 py-3 bg-white border ${errors.includes('deporteCual') ? 'border-rose-500 ring-1 ring-rose-500' : 'border-oro/20'} rounded-xl focus:ring-2 focus:ring-guinda/20 outline-none`}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-guinda/60 uppercase">Nombre de su entrenador *</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="Nombre del entrenador"
+                                  value={student.entrenadorNombre}
+                                  onChange={(e) => handleStudentChange('entrenadorNombre', e.target.value)}
+                                  className={`w-full px-4 py-3 bg-white border ${errors.includes('entrenadorNombre') ? 'border-rose-500 ring-1 ring-rose-500' : 'border-oro/20'} rounded-xl focus:ring-2 focus:ring-guinda/20 outline-none`}
+                                />
+                              </div>
+                            </motion.div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -1208,6 +1343,27 @@ export default function App() {
                           </div>
                         ))}
                       </div>
+
+                      <div className="max-w-md mx-auto space-y-4 p-6 bg-oro-light/20 rounded-3xl border border-oro/20 mt-8">
+                        <label className="text-sm font-black text-guinda uppercase tracking-wider block">¿Se cumplió con esta fase con éxito? *</label>
+                        <div className={`grid grid-cols-2 gap-4 p-1 rounded-2xl ${errors.includes('cumplioCalentamiento') ? 'bg-rose-50 ring-1 ring-rose-500' : ''}`}>
+                          <button
+                            type="button"
+                            onClick={() => handleStudentChange('cumplioCalentamiento', 'Sí')}
+                            className={`py-3 rounded-xl border-2 font-black transition-all text-xs tracking-widest ${student.cumplioCalentamiento === 'Sí' ? 'bg-guinda border-guinda text-white shadow-lg shadow-guinda/20' : 'bg-white border-oro/20 text-guinda/40 hover:border-oro/40'}`}
+                          >
+                            {student.cumplioCalentamiento === 'Sí' ? '✓ ' : ''}SÍ SE CUMPLIÓ
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleStudentChange('cumplioCalentamiento', 'No')}
+                            className={`py-3 rounded-xl border-2 font-black transition-all text-xs tracking-widest ${student.cumplioCalentamiento === 'No' ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-200' : 'bg-white border-oro/20 text-guinda/40 hover:border-oro/40'}`}
+                          >
+                            {student.cumplioCalentamiento === 'No' ? '✗ ' : ''}NO SE CUMPLIÓ
+                          </button>
+                        </div>
+                      </div>
+
                       <button 
                         onClick={nextStation}
                         className="mt-8 bg-guinda text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-guinda-light transition-all flex items-center gap-2 mx-auto shadow-xl shadow-guinda/20"
@@ -1219,11 +1375,18 @@ export default function App() {
 
                   {currentStation === 4 && (
                     <div className="space-y-8">
-                      <div className="bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20">
-                        <Info className="text-guinda shrink-0" size={24} />
-                        <div className="text-sm text-guinda leading-relaxed">
-                          <p className="font-bold mb-1">Prueba Sit and Reach modificada:</p>
-                          <p>Medir la flexibilidad en la flexión ventral del tronco. Se registran tres intentos y se toma la mejor marca en centímetros.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div className="md:col-span-2 bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20 min-h-[160px] flex-col justify-center">
+                          <div className="flex gap-4 items-start">
+                            <Info className="text-guinda shrink-0" size={24} />
+                            <div className="text-sm text-guinda leading-relaxed">
+                              <p className="font-bold mb-1">Prueba Sit and Reach modificada:</p>
+                              <p>Medir la flexibilidad en la flexión ventral del tronco. Se registran tres intentos y se toma la mejor marca en centímetros.</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="md:col-span-1 flex justify-center">
+                          <TestIllustration stationId={4} />
                         </div>
                       </div>
                       <div className="max-w-xs mx-auto space-y-4">
@@ -1243,14 +1406,21 @@ export default function App() {
 
                   {currentStation === 5 && (
                     <div className="space-y-8">
-                      <div className="bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20">
-                        <Info className="text-guinda shrink-0" size={24} />
-                        <div className="text-sm text-guinda leading-relaxed">
-                          <p className="font-bold mb-1">Carrera de Velocidad:</p>
-                          <p>
-                            {age <= 11 ? '30 metros para alumnos hasta 11 años.' : '50 metros para alumnos de 12 años en adelante.'}
-                            <br />Se registra el tiempo con precisión de una décima. Solo un intento.
-                          </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div className="md:col-span-2 bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20 min-h-[160px] flex-col justify-center">
+                          <div className="flex gap-4 items-start">
+                            <Info className="text-guinda shrink-0" size={24} />
+                            <div className="text-sm text-guinda leading-relaxed">
+                              <p className="font-bold mb-1">Carrera de Velocidad:</p>
+                              <p>
+                                {age <= 11 ? '30 metros para alumnos hasta 11 años.' : '50 metros para alumnos de 12 años en adelante.'}
+                                <br />Se registra el tiempo con precisión de una décima. Solo un intento.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="md:col-span-1 flex justify-center">
+                          <TestIllustration stationId={5} />
                         </div>
                       </div>
                       <div className="max-w-xs mx-auto space-y-4">
@@ -1268,11 +1438,18 @@ export default function App() {
 
                   {currentStation === 6 && (
                     <div className="space-y-8">
-                      <div className="bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20">
-                        <Info className="text-guinda shrink-0" size={24} />
-                        <div className="text-sm text-guinda leading-relaxed">
-                          <p className="font-bold mb-1">Lagartijas o Planchas:</p>
-                          <p>Evaluar la fuerza dinámica de extremidades superiores. Se cuentan las repeticiones continuas realizadas correctamente.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div className="md:col-span-2 bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20 min-h-[160px] flex-col justify-center">
+                          <div className="flex gap-4 items-start">
+                            <Info className="text-guinda shrink-0" size={24} />
+                            <div className="text-sm text-guinda leading-relaxed">
+                              <p className="font-bold mb-1">Lagartijas o Planchas:</p>
+                              <p>Evaluar la fuerza dinámica de extremidades superiores. Se cuentan las repeticiones continuas realizadas correctamente.</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="md:col-span-1 flex justify-center">
+                          <TestIllustration stationId={6} />
                         </div>
                       </div>
                       <div className="max-w-xs mx-auto space-y-4">
@@ -1290,11 +1467,18 @@ export default function App() {
 
                   {currentStation === 7 && (
                     <div className="space-y-8">
-                      <div className="bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20">
-                        <Info className="text-guinda shrink-0" size={24} />
-                        <div className="text-sm text-guinda leading-relaxed">
-                          <p className="font-bold mb-1">Abdominales:</p>
-                          <p>Evaluar la fuerza de los músculos abdominales. Se cuenta el número de repeticiones hechas correctamente de forma continua.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div className="md:col-span-2 bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20 min-h-[160px] flex-col justify-center">
+                          <div className="flex gap-4 items-start">
+                            <Info className="text-guinda shrink-0" size={24} />
+                            <div className="text-sm text-guinda leading-relaxed">
+                              <p className="font-bold mb-1">Abdominales:</p>
+                              <p>Evaluar la fuerza de los músculos abdominales. Se cuenta el número de repeticiones hechas correctamente de forma continua.</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="md:col-span-1 flex justify-center">
+                          <TestIllustration stationId={7} />
                         </div>
                       </div>
                       <div className="max-w-xs mx-auto space-y-4">
@@ -1312,11 +1496,18 @@ export default function App() {
 
                   {currentStation === 8 && (
                     <div className="space-y-8">
-                      <div className="bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20">
-                        <Info className="text-guinda shrink-0" size={24} />
-                        <div className="text-sm text-guinda leading-relaxed">
-                          <p className="font-bold mb-1">Salto de Longitud sin Carrera:</p>
-                          <p>Evaluar la fuerza explosiva. Dos intentos, se registra la mejor distancia en centímetros tomando como referencia el talón más retrasado.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div className="md:col-span-2 bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20 min-h-[160px] flex-col justify-center">
+                          <div className="flex gap-4 items-start">
+                            <Info className="text-guinda shrink-0" size={24} />
+                            <div className="text-sm text-guinda leading-relaxed">
+                              <p className="font-bold mb-1">Salto de Longitud sin Carrera:</p>
+                              <p>Evaluar la fuerza explosiva. Dos intentos, se registra la mejor distancia en centímetros tomando como referencia el talón más retrasado.</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="md:col-span-1 flex justify-center">
+                          <TestIllustration stationId={8} />
                         </div>
                       </div>
                       <div className="max-w-xs mx-auto space-y-4">
@@ -1334,14 +1525,21 @@ export default function App() {
 
                   {currentStation === 9 && (
                     <div className="space-y-8">
-                      <div className="bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20">
-                        <Info className="text-guinda shrink-0" size={24} />
-                        <div className="text-sm text-guinda leading-relaxed">
-                          <p className="font-bold mb-1">Prueba de Resistencia:</p>
-                          <p>
-                            {age <= 11 ? '600 metros para alumnos hasta 11 años.' : '1000 metros para alumnos de 12 años en adelante.'}
-                            <br />Se registra el tiempo en minutos y segundos (ej. 4.20).
-                          </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div className="md:col-span-2 bg-oro-light rounded-2xl p-6 flex gap-4 items-start border border-oro/20 min-h-[160px] flex-col justify-center">
+                          <div className="flex gap-4 items-start">
+                            <Info className="text-guinda shrink-0" size={24} />
+                            <div className="text-sm text-guinda leading-relaxed">
+                              <p className="font-bold mb-1">Prueba de Resistencia:</p>
+                              <p>
+                                {age <= 11 ? '600 metros para alumnos hasta 11 años.' : '1000 metros para alumnos de 12 años en adelante.'}
+                                <br />Se registra el tiempo en minutos y segundos (ej. 4.20).
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="md:col-span-1 flex justify-center">
+                          <TestIllustration stationId={9} />
                         </div>
                       </div>
                       <div className="max-w-xs mx-auto space-y-4">

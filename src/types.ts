@@ -18,6 +18,12 @@ export interface StudentData {
     numeroExterior: string;
     numeroInterior: string;
   };
+  // New Fields from User Request (May 2026 / Image)
+  profesorEducacionFisica: string;
+  practicaDeporte: 'Sí' | 'No' | '';
+  deporteCual: string;
+  entrenadorNombre: string;
+  cumplioCalentamiento: 'Sí' | 'No' | '';
 }
 
 export interface SavedStudent extends StudentData {
