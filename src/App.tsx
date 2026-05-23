@@ -29,6 +29,11 @@ import {
   Edit,
   AlertTriangle,
   Menu,
+  SlidersHorizontal,
+  Printer,
+  Download,
+  Eye,
+  FileDown,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -121,6 +126,45 @@ export default function App() {
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'score' | 'best_sport'>('date');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Extended filters from user request (May 2026 / Image)
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterBirthYear, setFilterBirthYear] = useState('');
+  const [filterSexo, setFilterSexo] = useState('');
+  const [filterEscuela, setFilterEscuela] = useState('');
+  const [filterProfesor, setFilterProfesor] = useState('');
+  const [filterEntrenador, setFilterEntrenador] = useState('');
+  const [filterDeporte, setFilterDeporte] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedReportStudent, setSelectedReportStudent] = useState<SavedStudent | null>(null);
+
+  const uniqueEscuelas = useMemo(() => {
+    return Array.from(new Set(savedStudents.map(s => s.escuela).filter(Boolean)));
+  }, [savedStudents]);
+
+  const uniqueProfesores = useMemo(() => {
+    return Array.from(new Set(savedStudents.map(s => s.profesorEducacionFisica).filter(Boolean)));
+  }, [savedStudents]);
+
+  const uniqueEntrenadores = useMemo(() => {
+    return Array.from(new Set(savedStudents.map(s => s.entrenadorNombre).filter(Boolean)));
+  }, [savedStudents]);
+
+  const uniqueDeportes = useMemo(() => {
+    const list: string[] = [];
+    savedStudents.forEach(s => {
+      if (s.deporteCual) list.push(s.deporteCual);
+      if (s.evaluation?.recommendedSports) {
+        list.push(...s.evaluation.recommendedSports);
+      }
+    });
+    return Array.from(new Set(list)).filter(Boolean);
+  }, [savedStudents]);
+
+  const uniqueBirthYears = useMemo(() => {
+    return Array.from(new Set(savedStudents.map(s => s.fechaNacimiento?.año).filter(Boolean))).sort();
+  }, [savedStudents]);
+
   const sortedStudents = useMemo(() => {
     let students = [...savedStudents];
 
@@ -130,6 +174,59 @@ export default function App() {
       students = students.filter(s => {
         const fullName = `${s.primerNombre} ${s.segundoNombre} ${s.primerApellido} ${s.segundoApellido}`.toLowerCase();
         return fullName.includes(term);
+      });
+    }
+
+    // Filter by Application Date
+    const getMeasurementDate = (s: SavedStudent) => {
+      if (s.measurement?.fecha) {
+        const { dia, mes, año } = s.measurement.fecha;
+        return new Date(parseInt(año), parseInt(mes) - 1, parseInt(dia));
+      }
+      return new Date();
+    };
+
+    if (filterStartDate) {
+      const start = new Date(filterStartDate + 'T00:00:00');
+      students = students.filter(s => getMeasurementDate(s) >= start);
+    }
+    if (filterEndDate) {
+      const end = new Date(filterEndDate + 'T23:59:59');
+      students = students.filter(s => getMeasurementDate(s) <= end);
+    }
+
+    // Filter by birth year
+    if (filterBirthYear) {
+      students = students.filter(s => s.fechaNacimiento?.año === filterBirthYear);
+    }
+
+    // Filter by gender (sexo)
+    if (filterSexo) {
+      students = students.filter(s => s.sexo === filterSexo);
+    }
+
+    // Filter by school
+    if (filterEscuela) {
+      students = students.filter(s => s.escuela === filterEscuela);
+    }
+
+    // Filter by PE teacher
+    if (filterProfesor) {
+      students = students.filter(s => s.profesorEducacionFisica === filterProfesor);
+    }
+
+    // Filter by coach
+    if (filterEntrenador) {
+      students = students.filter(s => s.entrenadorNombre === filterEntrenador);
+    }
+
+    // Filter by sport
+    if (filterDeporte) {
+      const dep = filterDeporte.toLowerCase();
+      students = students.filter(s => {
+        const practices = s.deporteCual?.toLowerCase() === dep;
+        const recommended = s.evaluation?.recommendedSports?.some(r => r.toLowerCase().includes(dep));
+        return practices || recommended;
       });
     }
 
@@ -150,7 +247,19 @@ export default function App() {
       default:
         return students;
     }
-  }, [savedStudents, sortBy, searchTerm]);
+  }, [
+    savedStudents, 
+    sortBy, 
+    searchTerm, 
+    filterStartDate, 
+    filterEndDate, 
+    filterBirthYear, 
+    filterSexo, 
+    filterEscuela, 
+    filterProfesor, 
+    filterEntrenador, 
+    filterDeporte
+  ]);
 
   // Auth & Firestore Sync
   useEffect(() => {
@@ -340,6 +449,7 @@ export default function App() {
         ...student,
         results: { ...results },
         evaluation: evaluation ? { ...evaluation } : null,
+        measurement: { ...measurement },
         updatedAt: serverTimestamp()
       };
 
@@ -384,6 +494,14 @@ export default function App() {
         salto: '',
         resistencia: ''
       });
+      setMeasurement({
+        lugar: '',
+        fecha: { 
+          dia: new Date().getDate().toString(), 
+          mes: (new Date().getMonth() + 1).toString(), 
+          año: new Date().getFullYear().toString() 
+        }
+      });
       setCurrentStation(1);
       setView('dashboard');
     } catch (error) {
@@ -410,6 +528,18 @@ export default function App() {
       cumplioCalentamiento: s.cumplioCalentamiento || ''
     });
     setResults(s.results);
+    if (s.measurement) {
+      setMeasurement(s.measurement);
+    } else {
+      setMeasurement({
+        lugar: s.escuela || '',
+        fecha: { 
+          dia: new Date().getDate().toString(), 
+          mes: (new Date().getMonth() + 1).toString(), 
+          año: new Date().getFullYear().toString() 
+        }
+      });
+    }
     setCurrentStation(1);
     setView('form');
   };
@@ -840,8 +970,8 @@ export default function App() {
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-oro/10 shadow-sm">
-                <span className="text-[10px] font-bold text-guinda/40 uppercase px-2">Filtrar por:</span>
+              <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-oro/10 shadow-sm relative">
+                <span className="text-[10px] font-bold text-guinda/40 uppercase px-2">Filtros & Orden:</span>
                 <button 
                   onClick={() => setSortBy('date')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${sortBy === 'date' ? 'bg-guinda text-white' : 'text-guinda/60 hover:bg-oro-light'}`}
@@ -858,7 +988,7 @@ export default function App() {
                   onClick={() => setSortBy('score')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${sortBy === 'score' ? 'bg-guinda text-white' : 'text-guinda/60 hover:bg-oro-light'}`}
                 >
-                  Mayor Puntuación
+                  Mayor Puntos
                 </button>
                 <button 
                   onClick={() => setSortBy('best_sport')}
@@ -866,7 +996,176 @@ export default function App() {
                 >
                   Mejor Deporte
                 </button>
+                
+                <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`sm:ml-auto px-4 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${showFilters ? 'bg-guinda text-white shadow-lg shadow-guinda/15' : 'bg-oro-light text-guinda hover:bg-oro'}`}
+                >
+                  <SlidersHorizontal size={14} /> 
+                  <span>Filtros Avanzados</span>
+                  {(filterStartDate || filterEndDate || filterBirthYear || filterSexo || filterEscuela || filterProfesor || filterEntrenador || filterDeporte) && (
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  )}
+                </button>
               </div>
+
+              {/* Collapsible Advanced Filters Panel */}
+              {showFilters && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-white rounded-3xl p-6 border border-oro/20 shadow-lg space-y-6"
+                >
+                  <div className="flex items-center justify-between border-b border-oro/10 pb-4">
+                    <h3 className="text-sm font-black text-guinda uppercase tracking-wider flex items-center gap-2">
+                      <SlidersHorizontal size={16} className="text-oro" /> Panel de Filtrado Detallado (Hoja de Evaluación)
+                    </h3>
+                    {(filterStartDate || filterEndDate || filterBirthYear || filterSexo || filterEscuela || filterProfesor || filterEntrenador || filterDeporte) && (
+                      <button
+                        onClick={() => {
+                          setFilterStartDate('');
+                          setFilterEndDate('');
+                          setFilterBirthYear('');
+                          setFilterSexo('');
+                          setFilterEscuela('');
+                          setFilterProfesor('');
+                          setFilterEntrenador('');
+                          setFilterDeporte('');
+                        }}
+                        className="text-[10px] uppercase font-black text-rose-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        ✕ Limpiar Todos los Filtros
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Fecha de Aplicación Range */}
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-bold text-guinda/60 uppercase block">Fecha de aplicación (Rango)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={filterStartDate}
+                          onChange={(e) => setFilterStartDate(e.target.value)}
+                          className="w-full bg-oro-light/20 border border-oro/20 rounded-xl px-3 py-2 text-xs font-medium text-guinda focus:outline-none focus:ring-1 focus:ring-guinda"
+                          placeholder="Desde"
+                        />
+                        <span className="text-xs text-guinda/40">a</span>
+                        <input
+                          type="date"
+                          value={filterEndDate}
+                          onChange={(e) => setFilterEndDate(e.target.value)}
+                          className="w-full bg-oro-light/20 border border-oro/20 rounded-xl px-3 py-2 text-xs font-medium text-guinda focus:outline-none focus:ring-1 focus:ring-guinda"
+                          placeholder="Hasta"
+                        />
+                      </div>
+                      <p className="text-[9px] text-guinda/40 italic">Filtra por la fecha en que se realizó la evaluación del alumno.</p>
+                    </div>
+
+                    {/* Sexo Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-guinda/60 uppercase block">Sexo</label>
+                      <div className="grid grid-cols-3 gap-1 bg-oro-light/20 p-1 rounded-xl border border-oro/10">
+                        <button
+                          onClick={() => setFilterSexo('')}
+                          className={`py-1 rounded-lg text-[10px] font-bold transition-all ${!filterSexo ? 'bg-guinda text-white shadow' : 'text-guinda/60 hover:bg-white/50'}`}
+                        >
+                          Todos
+                        </button>
+                        <button
+                          onClick={() => setFilterSexo('M')}
+                          className={`py-1 rounded-lg text-[10px] font-bold transition-all ${filterSexo === 'M' ? 'bg-blue-600 text-white shadow' : 'text-guinda/60 hover:bg-white/50'}`}
+                        >
+                          M
+                        </button>
+                        <button
+                          onClick={() => setFilterSexo('F')}
+                          className={`py-1 rounded-lg text-[10px] font-bold transition-all ${filterSexo === 'F' ? 'bg-rose-600 text-white shadow' : 'text-guinda/60 hover:bg-white/50'}`}
+                        >
+                          F
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Fecha de Nacimiento (Año) */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-guinda/60 uppercase block">Año de Nacimiento</label>
+                      <select
+                        value={filterBirthYear}
+                        onChange={(e) => setFilterBirthYear(e.target.value)}
+                        className="w-full bg-oro-light/20 border border-oro/20 rounded-xl px-3 py-2 text-xs font-medium text-guinda focus:outline-none focus:ring-1 focus:ring-guinda"
+                      >
+                        <option value="">Todos los años</option>
+                        {uniqueBirthYears.map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Escuela Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-guinda/60 uppercase block">Escuela Primaria</label>
+                      <select
+                        value={filterEscuela}
+                        onChange={(e) => setFilterEscuela(e.target.value)}
+                        className="w-full bg-oro-light/20 border border-oro/20 rounded-xl px-3 py-2 text-xs font-medium text-guinda focus:outline-none focus:ring-1 focus:ring-guinda"
+                      >
+                        <option value="">Todas las escuelas</option>
+                        {uniqueEscuelas.map(esc => (
+                          <option key={esc} value={esc}>{esc}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Profesor de Educación Física Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-guinda/60 uppercase block">Profesor de Educación Física</label>
+                      <select
+                        value={filterProfesor}
+                        onChange={(e) => setFilterProfesor(e.target.value)}
+                        className="w-full bg-oro-light/20 border border-oro/20 rounded-xl px-3 py-2 text-xs font-medium text-guinda focus:outline-none focus:ring-1 focus:ring-guinda"
+                      >
+                        <option value="">Todos los profesores</option>
+                        {uniqueProfesores.map(prof => (
+                          <option key={prof} value={prof}>{prof}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Entrenador Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-guinda/60 uppercase block">Nombre de Entrenador</label>
+                      <select
+                        value={filterEntrenador}
+                        onChange={(e) => setFilterEntrenador(e.target.value)}
+                        className="w-full bg-oro-light/20 border border-oro/20 rounded-xl px-3 py-2 text-xs font-medium text-guinda focus:outline-none focus:ring-1 focus:ring-guinda"
+                      >
+                        <option value="">Todos los entrenadores</option>
+                        {uniqueEntrenadores.map(ent => (
+                          <option key={ent} value={ent}>{ent}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Deporte Recomendado o Practicado */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-guinda/60 uppercase block">Clasificación Deporte</label>
+                      <select
+                        value={filterDeporte}
+                        onChange={(e) => setFilterDeporte(e.target.value)}
+                        className="w-full bg-oro-light/20 border border-oro/20 rounded-xl px-3 py-2 text-xs font-medium text-guinda focus:outline-none focus:ring-1 focus:ring-guinda"
+                      >
+                        <option value="">Cualquier disciplina</option>
+                        {uniqueDeportes.map(dep => (
+                          <option key={dep} value={dep}>{dep}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
               <div className="grid gap-4">
                 {savedStudents.length === 0 ? (
@@ -950,6 +1249,13 @@ export default function App() {
                             <p className="text-xl font-black text-guinda">{s.evaluation?.totalPoints || 0}</p>
                           </div>
                           <div className="flex items-center gap-1">
+                            <button 
+                              onClick={() => setSelectedReportStudent(s)}
+                              className="p-2 text-oro/40 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                              title="Ver Reporte de Resultados"
+                            >
+                              <Eye size={18} />
+                            </button>
                             <button 
                               onClick={() => handleEdit(s)}
                               className="p-2 text-oro/40 hover:text-guinda hover:bg-oro-light rounded-xl transition-all"
@@ -1750,6 +2056,360 @@ export default function App() {
           </motion.div>
         </div>
       )}
+    </AnimatePresence>
+
+    {/* Student Report View Modal */}
+    <AnimatePresence>
+      {selectedReportStudent && (() => {
+        const s = selectedReportStudent;
+        const bYear = parseInt(s.fechaNacimiento?.año);
+        const sAge = !isNaN(bYear) ? new Date().getFullYear() - bYear : 0;
+        
+        return (
+          <div className="fixed inset-0 z-[120] flex items-start justify-center p-0 sm:p-4 overflow-y-auto bg-slate-900/40 backdrop-blur-sm">
+            {/* Scoped style for printable area */}
+            <style dangerouslySetInnerHTML={{__html: `
+              @media print {
+                body {
+                  background-color: white !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+                .print-full {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  margin: 0 !important;
+                  padding: 1.5cm !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  background: white !important;
+                  transform: none !important;
+                }
+                .print-grid {
+                  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                }
+                .print-battery {
+                  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                }
+              }
+            `}} />
+            
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedReportStudent(null)}
+              className="absolute inset-0 bg-transparent no-print cursor-pointer"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-white sm:rounded-[36px] shadow-2xl border-0 sm:border border-oro/20 max-w-4xl w-full my-0 sm:my-8 overflow-hidden flex flex-col print-full min-h-screen sm:min-h-0"
+            >
+              {/* Header Mexican Colors top banner */}
+              <div className="h-2 bg-gradient-to-r from-oro via-guinda to-oro no-print" />
+              
+              {/* Header Controls */}
+              <div className="p-6 border-b border-oro/10 bg-oro-light/20 flex flex-wrap gap-4 items-center justify-between no-print">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-guinda text-oro flex items-center justify-center font-black text-xs">
+                    TL
+                  </div>
+                  <div>
+                    <h4 className="font-black text-guinda text-sm uppercase">Reporte del Infante</h4>
+                    <p className="text-[10px] text-guinda/60 font-medium font-sans">Boleta de Evaluación Oficial Talent Lab</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => window.print()}
+                    className="bg-guinda hover:bg-guinda-light text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-guinda/20 flex items-center gap-1.5 transition-all text-center cursor-pointer"
+                  >
+                    <Printer size={14} className="text-oro" /> Imprimir Reporte / PDF
+                  </button>
+                  <button
+                    onClick={() => setSelectedReportStudent(null)}
+                    className="bg-oro-light text-guinda hover:bg-oro/20 px-4 py-2.5 rounded-xl font-bold text-xs border border-oro/10 transition-all cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+
+              {/* Printable Body */}
+              <div className="p-8 sm:p-12 space-y-8 flex-1" id="printable-report">
+                {/* Official Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-2 border-guinda pb-6 gap-4">
+                  <div>
+                    <span className="text-[10px] bg-guinda text-white px-2.5 py-1 rounded-full font-black tracking-widest uppercase">
+                      TALENT LAB MÉXICO
+                    </span>
+                    <h2 className="text-2xl font-black text-guinda mt-2 uppercase tracking-tight">
+                      Boleta de Evaluación Física
+                    </h2>
+                    <p className="text-xs text-guinda/60 font-bold uppercase tracking-widest mt-0.5">
+                      SISTEMA NACIONAL DE DETECCIÓN DE TALENTOS DEPORTIVOS
+                    </p>
+                  </div>
+                  
+                  {/* Decorative stamp stamp */}
+                  <div className="text-right flex flex-col items-start sm:items-end p-3 bg-oro-light/40 border border-oro/30 rounded-2xl">
+                    <p className="text-[9px] font-black text-guinda uppercase">Código de Scout</p>
+                    <p className="text-xs font-mono font-bold text-guinda">SCT-2026-{s.id.slice(0,6).toUpperCase()}</p>
+                    <p className="text-[8px] text-guinda/40 mt-1">Gabinete de scouting estatal</p>
+                  </div>
+                </div>
+
+                {/* Grid 1: Personal and School information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print-grid">
+                  {/* Student profile card */}
+                  <div className="bg-oro-light/20 rounded-3xl p-6 border border-oro/15 space-y-4">
+                    <h3 className="text-xs font-black text-guinda uppercase tracking-widest border-b border-oro/20 pb-2">
+                       1. Datos Generales del Alumno
+                    </h3>
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-xs">
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold">Nombre Completo</p>
+                        <p className="font-extrabold text-guinda text-sm uppercase">
+                          {s.primerNombre} {s.segundoNombre} {s.primerApellido} {s.segundoApellido}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold text-right sm:text-left">Sexo / Género</p>
+                        <p className="font-black text-guinda uppercase text-right sm:text-left">
+                          {s.sexo === 'M' ? 'Masculino (M)' : 'Femenino (F)'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold">Fecha de Nacimiento</p>
+                        <p className="font-bold text-guinda">
+                          {s.fechaNacimiento?.dia}/{s.fechaNacimiento?.mes}/{s.fechaNacimiento?.año}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold text-right sm:text-left">Edad Calculada</p>
+                        <p className="font-black text-guinda text-right sm:text-left">{sAge} Años</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold">Domicilio</p>
+                        <p className="font-medium text-guinda uppercase">
+                          Col. {s.direccion?.colonia || 'Sin datos'}, Ext. {s.direccion?.numeroExterior || 'S/N'}, Int. {s.direccion?.numeroInterior || 'S/N'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* School / Context card */}
+                  <div className="bg-oro-light/20 rounded-3xl p-6 border border-oro/15 space-y-4">
+                    <h3 className="text-xs font-black text-guinda uppercase tracking-widest border-b border-oro/20 pb-2">
+                       2. Datos Institucionales y Deportivos
+                    </h3>
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-xs">
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold">Escuela Primaria</p>
+                        <p className="font-extrabold text-guinda uppercase text-sm">
+                          {s.escuela}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold text-right sm:text-left">Turno Escolar</p>
+                        <p className="font-black text-guinda uppercase text-right sm:text-left">{s.turno || 'Sin Registrar'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold">Profesor de Educación Física</p>
+                        <p className="font-extrabold text-guinda uppercase">
+                          {s.profesorEducacionFisica || 'No especificado'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold text-right sm:text-left">Fase Calentamiento</p>
+                        <p className={`font-black uppercase text-right sm:text-left ${s.cumplioCalentamiento === 'Sí' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {s.cumplioCalentamiento || 'Pendiente'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold">¿Practica Deporte?</p>
+                        <p className="font-extrabold text-guinda uppercase">
+                          {s.practicaDeporte} {s.deporteCual ? `(${s.deporteCual})` : ''}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-guinda/50 uppercase font-bold text-right sm:text-left">Entrenador Actual</p>
+                        <p className="font-bold text-guinda uppercase text-right sm:text-left">{s.entrenadorNombre || 'No definido'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid 2: Antropometria y Lugar */}
+                <div className="bg-guinda text-white rounded-3xl p-6 border border-oro/10 flex flex-wrap items-center justify-between gap-6">
+                  <div>
+                    <p className="text-[10px] text-oro font-bold uppercase tracking-widest">Sede y Fecha de Captura</p>
+                    <p className="text-base font-black uppercase mt-1">
+                      {s.measurement?.lugar || s.escuela || 'Sede Sencilla'}
+                    </p>
+                    <p className="text-[10px] text-white/60">
+                      Fecha de aplicación: {s.measurement?.fecha?.dia}/{s.measurement?.fecha?.mes}/{s.measurement?.fecha?.año}
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-8 print-grid">
+                    <div className="text-center bg-white/10 px-6 py-2 rounded-2xl border border-white/10">
+                      <p className="text-[9px] text-oro font-black uppercase">Estatura</p>
+                      <p className="text-xl font-black">{s.results?.estatura} <span className="text-sm font-medium">cm</span></p>
+                    </div>
+                    <div className="text-center bg-white/10 px-6 py-2 rounded-2xl border border-white/10">
+                      <p className="text-[9px] text-oro font-black uppercase">Peso Corporal</p>
+                      <p className="text-xl font-black">{s.results?.peso} <span className="text-sm font-medium">kg</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Batería de Pruebas Físicas (Results) */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-black text-guinda uppercase tracking-widest flex items-center gap-2 border-b-2 border-oro pb-2">
+                    <Activity size={16} /> 3. Resultados de la Batería de Pruebas Físicas
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print-battery">
+                    {/* Velocidad */}
+                    <div className="border border-oro/15 rounded-2xl p-4 bg-oro-light/10 space-y-1">
+                      <p className="text-[9px] font-black text-guinda/60 uppercase">Velocidad (Carrera {sAge <= 11 ? '30m' : '50m'})</p>
+                      <p className="text-2xl font-black text-guinda">{s.results?.velocidad || 'N/A'} <span className="text-xs font-bold text-guinda/60">s</span></p>
+                      <div className="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/10 mt-2">
+                        <span>Percentil:</span>
+                        <span className="font-black text-guinda text-xs bg-oro-light px-2 py-0.5 rounded-lg border border-oro/20">{s.evaluation?.percentiles?.velocidad || 0}%</span>
+                      </div>
+                    </div>
+
+                    {/* Lagartijas */}
+                    <div className="border border-oro/15 rounded-2xl p-4 bg-oro-light/10 space-y-1">
+                      <p className="text-[9px] font-black text-guinda/60 uppercase">Fuerza Superior (Lagartijas)</p>
+                      <p className="text-2xl font-black text-guinda">{s.results?.lagartijas || 'N/A'} <span className="text-xs font-bold text-guinda/60">reps</span></p>
+                      <div className="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/10 mt-2">
+                        <span>Percentil:</span>
+                        <span className="font-black text-guinda text-xs bg-oro-light px-2 py-0.5 rounded-lg border border-oro/20">{s.evaluation?.percentiles?.lagartijas || 0}%</span>
+                      </div>
+                    </div>
+
+                    {/* Abdominales */}
+                    <div className="border border-oro/15 rounded-2xl p-4 bg-oro-light/10 space-y-1">
+                      <p className="text-[9px] font-black text-guinda/60 uppercase">Fuerza Abdomen (Abdominales)</p>
+                      <p className="text-2xl font-black text-guinda">{s.results?.abdominales || 'N/A'} <span className="text-xs font-bold text-guinda/60 font-serif">reps</span></p>
+                      <div className="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/10 mt-2">
+                        <span>Percentil:</span>
+                        <span className="font-black text-guinda text-xs bg-oro-light px-2 py-0.5 rounded-lg border border-oro/20">{s.evaluation?.percentiles?.abdominales || 0}%</span>
+                      </div>
+                    </div>
+
+                    {/* Salto */}
+                    <div className="border border-oro/15 rounded-2xl p-4 bg-oro-light/10 space-y-1">
+                      <p className="text-[9px] font-black text-guinda/60 uppercase">Fuerza Inferior (Salto Longitud)</p>
+                      <p className="text-2xl font-black text-guinda">{s.results?.salto || 'N/A'} <span className="text-xs font-bold text-guinda/60 font-serif">cm</span></p>
+                      <div className="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/10 mt-2">
+                        <span>Percentil:</span>
+                        <span className="font-black text-guinda text-xs bg-oro-light px-2 py-0.5 rounded-lg border border-oro/20">{s.evaluation?.percentiles?.salto || 0}%</span>
+                      </div>
+                    </div>
+
+                    {/* Resistencia */}
+                    <div className="border border-oro/15 rounded-2xl p-4 bg-oro-light/10 space-y-1">
+                      <p className="text-[9px] font-black text-guinda/60 uppercase">Resistencia ({sAge <= 11 ? '600m' : '1000m'})</p>
+                      <p className="text-2xl font-black text-guinda">{s.results?.resistencia || 'N/A'} <span className="text-xs font-bold text-guinda/60">min</span></p>
+                      <div className="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/10 mt-2">
+                        <span>Percentil:</span>
+                        <span className="font-black text-guinda text-xs bg-oro-light px-2 py-0.5 rounded-lg border border-oro/20">{s.evaluation?.percentiles?.resistencia || 0}%</span>
+                      </div>
+                    </div>
+
+                    {/* Flexibilidad */}
+                    <div className="border border-oro/15 rounded-2xl p-4 bg-oro-light/10 space-y-1">
+                      <p className="text-[9px] font-black text-guinda/60 uppercase">Flexibilidad (Sit & Reach)</p>
+                      <p className="text-2xl font-black text-guinda">{s.results?.flexibilidad || 'N/A'} <span className="text-xs font-bold text-guinda/60">cm</span></p>
+                      <div className="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/10 mt-2">
+                        <span>Prueba Adicional:</span>
+                        <span className="font-sans font-bold text-guinda text-xs bg-oro-light px-2 py-0.5 rounded-md">General</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Diagnostic and Sports Potential */}
+                <div className="bg-oro-light/10 rounded-[30px] p-6 border-2 border-oro/20 space-y-4">
+                  <h3 className="text-xs font-black text-guinda uppercase tracking-widest flex items-center gap-2 border-b border-oro/20 pb-2">
+                    <Trophy size={16} className="text-oro" /> 4. Dictamen Final y Potencial de Talento Deportivo
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print-grid">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-guinda text-oro font-black text-2xl w-14 h-14 rounded-2xl flex items-center justify-center border-2 border-oro/30 shadow-md shrink-0">
+                          {s.evaluation?.totalPoints || 0}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-extrabold text-guinda/60 uppercase">Puntaje Total</p>
+                          <h4 className="text-xl font-black text-guinda uppercase leading-tight tracking-tight">
+                            Rendimiento: {s.evaluation?.classification || 'Sin clasificación'}
+                          </h4>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-white rounded-2xl border border-oro/15 text-xs text-guinda/70 leading-relaxed font-semibold">
+                        Este alumno cuenta con {s.evaluation?.totalPoints || 0} puntos en base a los baremos de evaluación de la CONADE para su grupo de edad y sexo. El dictamen determina un estatus de rendimiento general <span className="text-guinda font-extrabold uppercase">"{s.evaluation?.classification || 'Mal'}"</span>.
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-4 border border-oro/15 space-y-3">
+                      <div>
+                        <p className="text-[10px] font-black text-guinda/60 uppercase">¿Presentó Talento por Estatura?</p>
+                        <p className={`text-sm font-black uppercase mt-0.5 flex items-center gap-1.5 ${s.evaluation?.isTalentInHeight ? 'text-emerald-600' : 'text-guinda/40'}`}>
+                          <span className={`w-2.5 h-2.5 rounded-full ${s.evaluation?.isTalentInHeight ? 'bg-emerald-500 animate-ping' : 'bg-guinda/20'}`} />
+                          {s.evaluation?.isTalentInHeight ? 'SÍ, DETECTADO CON TALENTO' : 'No clasificado por estatura'}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-[10px] font-black text-guinda/60 uppercase pb-1.5">Disciplinas Deportivas Recomendadas</p>
+                        {s.evaluation?.recommendedSports && s.evaluation.recommendedSports.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {s.evaluation.recommendedSports.map((sport, idx) => (
+                              <span key={idx} className="text-[9px] font-black bg-guinda text-white px-2 py-1 rounded-lg border border-guinda-light">
+                                {sport}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs font-bold text-guinda/30 italic">No disponible</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Signatures region for official look */}
+                <div className="grid grid-cols-2 gap-12 pt-12 border-t border-oro/20 text-center text-xs print-grid">
+                  <div className="flex flex-col items-center">
+                    <div className="w-48 h-px bg-guinda/40 mb-2 mt-8" />
+                    <p className="font-extrabold text-guinda uppercase">{s.profesorEducacionFisica || '_________________________'}</p>
+                    <p className="text-[9px] text-guinda/50 uppercase font-bold">Firma de Profesor de Educación Física</p>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="w-48 h-px bg-guinda/40 mb-2 mt-8" />
+                    <p className="font-extrabold text-guinda uppercase">{s.entrenadorNombre || '_________________________'}</p>
+                    <p className="text-[9px] text-guinda/50 uppercase font-bold">Firma Scout Evaluador Talent Lab</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        );
+      })()}
     </AnimatePresence>
   </div>
   );

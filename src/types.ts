@@ -24,6 +24,10 @@ export interface StudentData {
   deporteCual: string;
   entrenadorNombre: string;
   cumplioCalentamiento: 'Sí' | 'No' | '';
+  measurement?: {
+    lugar: string;
+    fecha: DateDMY;
+  };
 }
 
 export interface SavedStudent extends StudentData {
