@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
 import pkg from "pg";
 const { Pool } = pkg;
 // Suppress connection errors during start by lazy initializing
@@ -326,6 +325,7 @@ app.post("/api/schools", async (req, res) => {
 
 async function setupVite() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
