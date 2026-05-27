@@ -316,44 +316,63 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
+  // Fetch from Express + Postgres database API
+  const fetchStudents = async () => {
+    try {
+      const res = await fetch("/api/students");
+      if (res.ok) {
+        const data = await res.json();
+        setSavedStudents(data);
+      }
+    } catch (e) {
+      console.error("Error fetching students from PostgreSQL API:", e);
+    }
+  };
+
+  const fetchTeachers = async () => {
+    try {
+      const res = await fetch("/api/teachers");
+      if (res.ok) {
+        const data = await res.json();
+        setTeachers(data);
+        localStorage.setItem('talentlab_teachers', JSON.stringify(data));
+      }
+    } catch (e) {
+      console.error("Error fetching teachers from PostgreSQL API:", e);
+    }
+  };
+
+  const fetchSchools = async () => {
+    try {
+      const res = await fetch("/api/schools");
+      if (res.ok) {
+        const data = await res.json();
+        setSchools(data);
+        localStorage.setItem('talentlab_schools', JSON.stringify(data));
+      }
+    } catch (e) {
+      console.error("Error fetching schools from PostgreSQL API:", e);
+    }
+  };
+
   useEffect(() => {
     if (!user) {
       setSavedStudents([]);
       return;
     }
 
-    const q = query(collection(db, 'students'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const students = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id
-      })) as SavedStudent[];
-      setSavedStudents(students);
-    }, (error) => {
-      console.error("Firestore Error:", error);
-    });
+    fetchStudents();
+    fetchTeachers();
+    fetchSchools();
 
-    return () => unsubscribe();
-  }, [user]);
+    // Background polling every 10 seconds for collaborative syncing
+    const interval = setInterval(() => {
+      fetchStudents();
+      fetchTeachers();
+      fetchSchools();
+    }, 10000);
 
-  // Load and listen to Teachers collection in Firestore
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    const q = query(collection(db, 'teachers'), orderBy('createdAt', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const dbTeachers = snapshot.docs.map(doc => doc.data().name as string).filter(Boolean);
-      const defaults = ['Prof. Juan Pérez', 'Profa. María Gómez', 'Prof. Carlos Ruiz'];
-      const combined = Array.from(new Set([...defaults, ...dbTeachers]));
-      setTeachers(combined);
-      localStorage.setItem('talentlab_teachers', JSON.stringify(combined));
-    }, (error) => {
-      console.error("Firestore Teachers Error:", error);
-    });
-
-    return () => unsubscribe();
+    return () => clearInterval(interval);
   }, [user]);
 
   const handleAddTeacher = async () => {
@@ -372,38 +391,22 @@ export default function App() {
     setNewTeacherName('');
     setShowAddTeacherInput(false);
 
-    // Save to Firestore if user is authenticated
+    // Save to PostgreSQL if user is authenticated
     if (user) {
       try {
-        await addDoc(collection(db, 'teachers'), {
-          name: trimmed,
-          createdAt: serverTimestamp()
+        const res = await fetch("/api/teachers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmed })
         });
+        if (res.ok) {
+          fetchTeachers();
+        }
       } catch (error) {
-        console.error("Error saving teacher to Firestore:", error);
+        console.error("Error saving teacher to PostgreSQL API:", error);
       }
     }
   };
-
-  // Load and listen to Schools collection in Firestore
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    const q = query(collection(db, 'schools'), orderBy('createdAt', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const dbSchools = snapshot.docs.map(doc => doc.data().name as string).filter(Boolean);
-      const defaults = ['Miguel Hidalgo', 'Benito Juárez', 'Ignacio Zaragoza', 'Niños Héroes'];
-      const combined = Array.from(new Set([...defaults, ...dbSchools]));
-      setSchools(combined);
-      localStorage.setItem('talentlab_schools', JSON.stringify(combined));
-    }, (error) => {
-      console.error("Firestore Schools Error:", error);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
 
   const handleAddSchool = async () => {
     const trimmed = newSchoolName.trim();
@@ -421,15 +424,19 @@ export default function App() {
     setNewSchoolName('');
     setShowAddSchoolInput(false);
 
-    // Save to Firestore if user is authenticated
+    // Save to PostgreSQL if user is authenticated
     if (user) {
       try {
-        await addDoc(collection(db, 'schools'), {
-          name: trimmed,
-          createdAt: serverTimestamp()
+        const res = await fetch("/api/schools", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmed })
         });
+        if (res.ok) {
+          fetchSchools();
+        }
       } catch (error) {
-        console.error("Error saving school to Firestore:", error);
+        console.error("Error saving school to PostgreSQL API:", error);
       }
     }
   };
@@ -573,23 +580,27 @@ export default function App() {
     if (!user) return;
 
     try {
+      const newId = editingStudentId || `st_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       const studentData = {
+        id: newId,
         ...student,
         results: { ...results },
         evaluation: evaluation ? { ...evaluation } : null,
         measurement: { ...measurement },
-        updatedAt: serverTimestamp()
+        createdBy: user.uid,
+        updatedAt: new Date().toISOString()
       };
 
-      if (editingStudentId) {
-        const studentRef = doc(db, 'students', editingStudentId);
-        await updateDoc(studentRef, studentData);
+      const res = await fetch("/api/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(studentData)
+      });
+
+      if (res.ok) {
+        await fetchStudents();
       } else {
-        await addDoc(collection(db, 'students'), {
-          ...studentData,
-          createdBy: user.uid,
-          createdAt: serverTimestamp()
-        });
+        throw new Error("Fallo al guardar en la base de datos");
       }
       
       setErrors([]);
@@ -680,7 +691,14 @@ export default function App() {
   const confirmDelete = async () => {
     if (studentToDelete) {
       try {
-        await deleteDoc(doc(db, 'students', studentToDelete));
+        const res = await fetch(`/api/students/${studentToDelete}`, {
+          method: "DELETE"
+        });
+        if (res.ok) {
+          await fetchStudents();
+        } else {
+          throw new Error("Error al eliminar el estudiante de la base de datos");
+        }
         setDeleteModalOpen(false);
         setStudentToDelete(null);
       } catch (error) {
