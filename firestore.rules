@@ -87,5 +87,10 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.name is string && request.resource.data.name.size() > 0;
     }
+
+    match /schools/{schoolId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.name is string && request.resource.data.name.size() > 0;
+    }
   }
 }
