@@ -183,12 +183,24 @@ export default function App() {
   const uniqueDeportes = useMemo(() => {
     const list: string[] = [];
     savedStudents.forEach(s => {
-      if (s.deporteCual) list.push(s.deporteCual);
+      if (s.deporteCual) {
+        const sportVal = s.deporteCual.trim();
+        const sportLower = sportVal.toLowerCase();
+        if (sportLower !== 'sí' && sportLower !== 'si' && sportLower !== 'no' && sportLower.length > 2) {
+          list.push(sportVal);
+        }
+      }
       if (s.evaluation?.recommendedSports) {
-        list.push(...s.evaluation.recommendedSports);
+        s.evaluation.recommendedSports.forEach(sport => {
+          const sportVal = sport.trim();
+          const sportLower = sportVal.toLowerCase();
+          if (sportLower !== 'sí' && sportLower !== 'si' && sportLower !== 'no' && sportLower.length > 2) {
+            list.push(sportVal);
+          }
+        });
       }
     });
-    return Array.from(new Set(list)).filter(Boolean);
+    return Array.from(new Set(list)).filter(Boolean).sort();
   }, [savedStudents]);
 
   const uniqueBirthYears = useMemo(() => {
@@ -252,10 +264,10 @@ export default function App() {
 
     // Filter by sport
     if (filterDeporte) {
-      const dep = filterDeporte.toLowerCase();
+      const dep = filterDeporte.toLowerCase().trim();
       students = students.filter(s => {
-        const practices = s.deporteCual?.toLowerCase() === dep;
-        const recommended = s.evaluation?.recommendedSports?.some(r => r.toLowerCase().includes(dep));
+        const practices = s.deporteCual?.toLowerCase().trim() === dep;
+        const recommended = s.evaluation?.recommendedSports?.some(r => r.toLowerCase().trim() === dep);
         return practices || recommended;
       });
     }
