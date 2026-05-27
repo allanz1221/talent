@@ -126,6 +126,21 @@ export default function App() {
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'score' | 'best_sport'>('date');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Physical education teachers states
+  const [teachers, setTeachers] = useState<string[]>(() => {
+    const cached = localStorage.getItem('talentlab_teachers');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        // ignore
+      }
+    }
+    return ['Prof. Juan Pérez', 'Profa. María Gómez', 'Prof. Carlos Ruiz'];
+  });
+  const [newTeacherName, setNewTeacherName] = useState('');
+  const [showAddTeacherInput, setShowAddTeacherInput] = useState(false);
+
   // Extended filters from user request (May 2026 / Image)
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
@@ -305,6 +320,55 @@ export default function App() {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Load and listen to Teachers collection in Firestore
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const q = query(collection(db, 'teachers'), orderBy('createdAt', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const dbTeachers = snapshot.docs.map(doc => doc.data().name as string).filter(Boolean);
+      const defaults = ['Prof. Juan Pérez', 'Profa. María Gómez', 'Prof. Carlos Ruiz'];
+      const combined = Array.from(new Set([...defaults, ...dbTeachers]));
+      setTeachers(combined);
+      localStorage.setItem('talentlab_teachers', JSON.stringify(combined));
+    }, (error) => {
+      console.error("Firestore Teachers Error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleAddTeacher = async () => {
+    const trimmed = newTeacherName.trim();
+    if (!trimmed) return;
+    
+    // Add to state if not already there
+    if (!teachers.includes(trimmed)) {
+      const updated = [...teachers, trimmed];
+      setTeachers(updated);
+      localStorage.setItem('talentlab_teachers', JSON.stringify(updated));
+    }
+    
+    // Auto select this teacher
+    handleStudentChange('profesorEducacionFisica', trimmed);
+    setNewTeacherName('');
+    setShowAddTeacherInput(false);
+
+    // Save to Firestore if user is authenticated
+    if (user) {
+      try {
+        await addDoc(collection(db, 'teachers'), {
+          name: trimmed,
+          createdAt: serverTimestamp()
+        });
+      } catch (error) {
+        console.error("Error saving teacher to Firestore:", error);
+      }
+    }
+  };
 
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
@@ -1469,40 +1533,48 @@ export default function App() {
                           <div className="space-y-3 md:col-span-2">
                             <label className="text-xs font-bold text-guinda/60 uppercase block">Nombre del Prof. de Educ. Física *</label>
                             
-                            {/* Quick Select Buttons */}
-                            <div className="flex flex-wrap gap-2">
-                              {['Prof. Juan Pérez', 'Profa. María Gómez', 'Prof. Carlos Ruiz', 'Otro'].map(name => {
-                                const isSelected = student.profesorEducacionFisica === name || (name === 'Otro' && student.profesorEducacionFisica !== '' && !['Prof. Juan Pérez', 'Profa. María Gómez', 'Prof. Carlos Ruiz'].includes(student.profesorEducacionFisica));
-                                return (
-                                  <button
-                                    key={name}
-                                    type="button"
-                                    onClick={() => {
-                                      if (name === 'Otro') {
-                                        handleStudentChange('profesorEducacionFisica', '');
-                                      } else {
-                                        handleStudentChange('profesorEducacionFisica', name);
-                                      }
-                                    }}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                                      isSelected
-                                        ? 'bg-guinda text-white border-guinda shadow-lg shadow-guinda/10'
-                                        : 'bg-white text-guinda/60 border-oro/25 hover:border-oro/50 hover:bg-oro-light/20'
-                                    }`}
-                                  >
-                                    {name}
-                                  </button>
-                                );
-                              })}
+                            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                              <div className="flex-1">
+                                <select
+                                  value={student.profesorEducacionFisica}
+                                  onChange={(e) => handleStudentChange('profesorEducacionFisica', e.target.value)}
+                                  className={`w-full px-4 py-3 bg-white border ${errors.includes('profesorEducacionFisica') ? 'border-rose-500 ring-1 ring-rose-500' : 'border-oro/20'} rounded-xl focus:ring-2 focus:ring-guinda/20 outline-none font-bold text-xs text-guinda`}
+                                >
+                                  <option value="">-- Selecciona un Profesor --</option>
+                                  {teachers.map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              
+                              <button
+                                type="button"
+                                onClick={() => setShowAddTeacherInput(!showAddTeacherInput)}
+                                className="px-4 py-3 rounded-xl bg-oro text-guinda font-black text-xs hover:bg-oro/85 transition-all text-center flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer"
+                              >
+                                {showAddTeacherInput ? '✕ Cancelar' : '+ Agregar a la lista'}
+                              </button>
                             </div>
 
-                            <input 
-                              type="text" 
-                              placeholder="Nombre completo del profesor de Educación Física"
-                              value={student.profesorEducacionFisica}
-                              onChange={(e) => handleStudentChange('profesorEducacionFisica', e.target.value)}
-                              className={`w-full px-4 py-3 bg-white border ${errors.includes('profesorEducacionFisica') ? 'border-rose-500 ring-1 ring-rose-500' : 'border-oro/20'} rounded-xl focus:ring-2 focus:ring-guinda/20 outline-none`}
-                            />
+                            {showAddTeacherInput && (
+                              <div className="p-4 bg-oro-light/35 border border-oro/20 rounded-2xl flex flex-col sm:flex-row gap-2 mt-2">
+                                <input 
+                                  type="text" 
+                                  placeholder="Escribe el nombre completo del nuevo profesor"
+                                  value={newTeacherName}
+                                  onChange={(e) => setNewTeacherName(e.target.value)}
+                                  className="flex-1 px-4 py-2 bg-white border border-oro/25 rounded-xl text-xs font-medium text-guinda focus:outline-none focus:ring-2 focus:ring-guinda/20"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleAddTeacher}
+                                  disabled={!newTeacherName.trim()}
+                                  className={`px-5 py-2.5 rounded-xl font-black text-xs transition-all tracking-wider text-white ${newTeacherName.trim() ? 'bg-guinda hover:bg-guinda-light cursor-pointer font-bold shadow' : 'bg-slate-300 cursor-not-allowed text-slate-500'}`}
+                                >
+                                  Agregar Profesor
+                                </button>
+                              </div>
+                            )}
                           </div>
 
                           {/* ¿Practica algún deporte? */}
@@ -2070,20 +2142,28 @@ export default function App() {
             {/* Scoped style for printable area */}
             <style dangerouslySetInnerHTML={{__html: `
               @media print {
+                @page {
+                  size: letter;
+                  margin: 1cm;
+                }
                 body {
+                  visibility: hidden !important;
                   background-color: white !important;
                 }
                 .no-print {
                   display: none !important;
                 }
-                .print-full {
+                #printable-report, #printable-report * {
+                  visibility: visible !important;
+                }
+                #printable-report {
                   position: absolute !important;
                   left: 0 !important;
                   top: 0 !important;
                   width: 100% !important;
                   max-width: 100% !important;
                   margin: 0 !important;
-                  padding: 1.5cm !important;
+                  padding: 0 !important;
                   box-shadow: none !important;
                   border: none !important;
                   background: white !important;
@@ -2091,9 +2171,11 @@ export default function App() {
                 }
                 .print-grid {
                   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                  display: grid !important;
                 }
                 .print-battery {
                   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                  display: grid !important;
                 }
               }
             `}} />
@@ -2128,7 +2210,17 @@ export default function App() {
                 </div>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => {
+                      window.focus();
+                      try {
+                        if (window.self !== window.top) {
+                          alert("Aviso: Dado que se encuentra dentro del panel de desarrollo, puede que necesite abrir la aplicación en una pestaña nueva (utilizando el icono de flecha/pantalla en la esquina superior derecha) para descargar o guardar en PDF con la mejor definición y diseño responsivo.");
+                        }
+                      } catch (e) {
+                        // ignore sandbox errors
+                      }
+                      window.print();
+                    }}
                     className="bg-guinda hover:bg-guinda-light text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-guinda/20 flex items-center gap-1.5 transition-all text-center cursor-pointer"
                   >
                     <Printer size={14} className="text-oro" /> Imprimir Reporte / PDF

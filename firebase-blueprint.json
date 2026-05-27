@@ -67,6 +67,16 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["primerNombre", "primerApellido", "sexo", "escuela", "createdBy", "createdAt"]
+    },
+    "Teacher": {
+      "title": "Teacher",
+      "description": "Physical Education Teacher profile",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
     }
   },
   "firestore": {
@@ -77,6 +87,10 @@
     "/students/{studentId}": {
       "schema": "Student",
       "description": "Student records"
+    },
+    "/teachers/{teacherId}": {
+      "schema": "Teacher",
+      "description": "Physical education teachers"
     }
   }
 }
