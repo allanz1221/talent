@@ -341,9 +341,13 @@ async function setupVite() {
     console.log("Serving build static files from:", distPath);
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Full-stack app running on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 Full-stack app running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 setupVite();
+
+export default app;
