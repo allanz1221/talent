@@ -707,6 +707,529 @@ export default function App() {
     }
   };
 
+  const generateReportHTML = (s: SavedStudent) => {
+    const bYear = parseInt(s.fechaNacimiento?.año);
+    const sAge = !isNaN(bYear) ? new Date().getFullYear() - bYear : 0;
+    const fullName = `${s.primerNombre} ${s.segundoNombre || ''} ${s.primerApellido} ${s.segundoApellido || ''}`.trim();
+    const formattedGender = s.sexo === 'M' ? 'Masculino (M)' : 'Femenino (F)';
+    const formattedDob = `${s.fechaNacimiento?.dia}/${s.fechaNacimiento?.mes}/${s.fechaNacimiento?.año}`;
+    const fullAddress = `Col. ${s.direccion?.colonia || 'Sin datos'}, Ext. ${s.direccion?.numeroExterior || 'S/N'}, Int. ${s.direccion?.numeroInterior || 'S/N'}`;
+    const sportDetails = s.practicaDeporte + (s.deporteCual ? ` (${s.deporteCual})` : '');
+    const captureLugar = s.measurement?.lugar || s.escuela || 'Sede Principal';
+    const captureFecha = `${s.measurement?.fecha?.dia}/${s.measurement?.fecha?.mes}/${s.measurement?.fecha?.año}`;
+    const velocidadPruebaName = sAge <= 11 ? '30m' : '50m';
+    const resistenciaPruebaName = sAge <= 11 ? '600m' : '1000m';
+
+    const recommendedSportsTags = s.evaluation?.recommendedSports && s.evaluation.recommendedSports.length > 0
+      ? s.evaluation.recommendedSports.map(sport => `
+          <span style="background: #621132; color: #fff; font-size: 8px; font-weight: bold; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; border: 1px solid #98224e; display: inline-block; margin-right: 4px; margin-bottom: 4px;">
+            ${sport}
+          </span>
+        `).join('')
+      : `<span style="font-size: 10px; font-weight: bold; color: #999; font-style: italic;">No disponible</span>`;
+
+    const talentTag = s.evaluation?.isTalentInHeight
+      ? `<span style="font-weight: bold; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 2px 6px; border-radius: 4px; font-size: 9px; display: inline-block; text-transform: uppercase;">SÍ, DETECTADO CON TALENTO</span>`
+      : `<span style="font-weight: bold; color: #555; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 9px; display: inline-block; text-transform: uppercase;">No clasificado por estatura</span>`;
+
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <title>Reporte_TalentLab_${s.primerNombre}_${s.primerApellido}</title>
+    <meta charset="utf-8" />
+    <style>
+      @media print {
+        @page {
+          size: letter;
+          margin: 1cm;
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          background: #fff;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        color: #1a1a1a;
+        margin: 0;
+        padding: 15px;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        border: 1px solid #e2e8f0;
+        padding: 24px;
+        border-radius: 8px;
+        background: #fff;
+      }
+      @media print {
+        .container {
+          border: none;
+          padding: 0;
+          max-width: 100%;
+        }
+      }
+      .hdr {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 3px solid #621132;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+      }
+      .hdr-left h1 {
+        margin: 0;
+        color: #621132;
+        font-size: 20px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: -0.5px;
+      }
+      .hdr-left p {
+        margin: 3px 0 0 0;
+        font-size: 9px;
+        color: #666;
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      .hdr-badge {
+        background: #621132;
+        color: #fff;
+        font-size: 8px;
+        font-weight: 800;
+        padding: 3px 8px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        display: inline-block;
+        margin-bottom: 4px;
+      }
+      .hdr-right {
+        text-align: right;
+        background: #faf8f5;
+        border: 1px solid #ebdcb9;
+        padding: 8px 12px;
+        border-radius: 6px;
+      }
+      .hdr-right .lbl {
+        margin: 0;
+        font-size: 7px;
+        color: #8a7355;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .hdr-right .val {
+        margin: 2px 0 0 0;
+        font-family: monospace;
+        font-size: 11px;
+        font-weight: bold;
+        color: #621132;
+      }
+      .sec-title {
+        font-size: 10px;
+        font-weight: 800;
+        color: #621132;
+        text-transform: uppercase;
+        border-bottom: 1px solid #ebdcb9;
+        padding-bottom: 4px;
+        margin: 16px 0 8px 0;
+        letter-spacing: 0.5px;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .tbl-info {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .tbl-info td {
+        padding: 4px 6px;
+        vertical-align: top;
+        border-bottom: 1px solid #f3f4f6;
+      }
+      .tbl-info tr:last-child td {
+        border-bottom: none;
+      }
+      .tbl-info .lbl {
+        width: 40%;
+        font-size: 8px;
+        color: #666;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+      .tbl-info .val {
+        font-weight: 700;
+        color: #222;
+        text-transform: uppercase;
+      }
+      .card {
+        background: #fdfdfd;
+        border: 1px solid #ebdcb9;
+        border-radius: 8px;
+        padding: 12px;
+      }
+      .antropometria-row {
+        background: #621132;
+        color: #fff;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 16px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .antropo-meta p {
+        margin: 0;
+      }
+      .antropo-meta .title {
+        font-size: 8px;
+        text-transform: uppercase;
+        font-weight: bold;
+        color: #ebdcb9;
+        letter-spacing: 0.5px;
+      }
+      .antropo-meta .lugar {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-top: 2px;
+      }
+      .antropo-meta .fecha {
+        font-size: 8px;
+        color: rgba(255,255,255,0.7);
+        margin-top: 1px;
+      }
+      .antropo-vals {
+        display: flex;
+        gap: 16px;
+      }
+      .antropo-item {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+        padding: 6px 12px;
+        text-align: center;
+        min-width: 65px;
+      }
+      .antropo-item .num {
+        font-size: 15px;
+        font-weight: 900;
+      }
+      .antropo-item .unit {
+        font-size: 8px;
+        color: #ebdcb9;
+        text-transform: uppercase;
+        font-weight: 700;
+        margin-top: 1px;
+      }
+      .tbl-results {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 16px;
+      }
+      .tbl-results th {
+        background: #faf8f5;
+        border: 1px solid #ebdcb9;
+        color: #621132;
+        font-size: 8px;
+        font-weight: 800;
+        text-align: left;
+        padding: 6px 10px;
+        text-transform: uppercase;
+      }
+      .tbl-results td {
+        border: 1px solid #ebdcb9;
+        padding: 8px 10px;
+        font-size: 11px;
+      }
+      .tbl-results tr:nth-child(even) {
+        background: #faf8f5;
+      }
+      .pct-badge {
+        background: #621132;
+        color: #fff;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 10px;
+        display: inline-block;
+      }
+      .flex-dictamen {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 16px;
+      }
+      .score-box {
+        background: #faf8f5;
+        border: 1px solid #ebdcb9;
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .score-circle {
+        background: #621132;
+        color: #ebdcb9;
+        width: 50px;
+        height: 50px;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-weight: 900;
+        font-size: 18px;
+        border: 1px solid #c5a059;
+        flex-shrink: 0;
+      }
+      .score-circle .lbl {
+        font-size: 6px;
+        color: #fff;
+        text-transform: uppercase;
+        font-weight: bold;
+      }
+      .score-details .title {
+        font-size: 8px;
+        color: #666;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+      .score-details .val {
+        font-size: 13px;
+        font-weight: 800;
+        color: #621132;
+        text-transform: uppercase;
+      }
+      .desc-box {
+        font-size: 9px;
+        color: #555;
+        line-height: 1.4;
+        margin-top: 6px;
+        background: #fff;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #f1eeeb;
+      }
+      .details-box {
+        background: #fff;
+        border: 1px solid #ebdcb9;
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .sigs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        margin-top: 24px;
+        text-align: center;
+      }
+      .sig-line {
+        border-top: 1px solid #621132;
+        width: 160px;
+        margin: 28px auto 4px auto;
+      }
+      .sig-name {
+        font-weight: 800;
+        color: #621132;
+        font-size: 10px;
+        text-transform: uppercase;
+      }
+      .sig-lbl {
+        font-size: 7px;
+        color: #666;
+        text-transform: uppercase;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="hdr">
+        <div class="hdr-left">
+          <span class="hdr-badge">TALENT LAB MÉXICO</span>
+          <h1>Boleta de Evaluación Física</h1>
+          <p>Sistema Nacional de Detección de Talentos Deportivos</p>
+        </div>
+        <div class="hdr-right">
+          <p class="lbl">Código de Scout</p>
+          <p class="val">SCT-2026-${s.id.slice(0,6).toUpperCase()}</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="sec-title" style="margin-top: 0;">1. Datos Generales del Alumno</div>
+          <table class="tbl-info">
+            <tr>
+              <td class="lbl">Nombre:</td>
+              <td class="val">${fullName}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Sexo:</td>
+              <td class="val">${formattedGender}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Nacimiento:</td>
+              <td class="val">${formattedDob}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Edad:</td>
+              <td class="val">${sAge} años</td>
+            </tr>
+            <tr>
+              <td class="lbl">Domicilio:</td>
+              <td class="val">${fullAddress}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="sec-title" style="margin-top: 0;">2. Datos Institucionales</div>
+          <table class="tbl-info">
+            <tr>
+              <td class="lbl">Escuela:</td>
+              <td class="val">${s.escuela}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Turno:</td>
+              <td class="val">${s.turno || 'Sin Registrar'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Profesor:</td>
+              <td class="val">${s.profesorEducacionFisica || 'No especificado'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Calentamiento:</td>
+              <td class="val" style="color: ${s.cumplioCalentamiento === 'Sí' ? '#15803d' : '#be123c'}">${s.cumplioCalentamiento || 'Pendiente'}</td>
+            </tr>
+            <tr>
+              <td class="lbl">Deporte:</td>
+              <td class="val">${sportDetails}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="antropometria-row">
+        <div class="antropo-meta">
+          <p class="title">Sede y Fecha de Captura</p>
+          <p class="lugar">${captureLugar}</p>
+          <p class="fecha">Fecha de aplicación: ${captureFecha}</p>
+        </div>
+        <div class="antropo-vals">
+          <div class="antropo-item">
+            <p class="num">${s.results?.estatura || '—'}</p>
+            <p class="unit">cm (Est.)</p>
+          </div>
+          <div class="antropo-item">
+            <p class="num">${s.results?.peso || '—'}</p>
+            <p class="unit">kg (Peso)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-title">3. Resultados de la Batería de Pruebas Físicas</div>
+      <table class="tbl-results">
+        <thead>
+          <tr>
+            <th>Prueba Física</th>
+            <th>Resultado Registrado</th>
+            <th>Percentil Baremo Nacional</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Velocidad (Carrera ${velocidadPruebaName})</td>
+            <td><strong>${s.results?.velocidad || 'N/A'} s</strong></td>
+            <td><span class="pct-badge">${s.evaluation?.percentiles?.velocidad || 0}%</span></td>
+          </tr>
+          <tr>
+            <td>Fuerza Superior (Lagartijas)</td>
+            <td><strong>${s.results?.lagartijas || 'N/A'} reps</strong></td>
+            <td><span class="pct-badge">${s.evaluation?.percentiles?.lagartijas || 0}%</span></td>
+          </tr>
+          <tr>
+            <td>Fuerza Abdomen (Abdominales)</td>
+            <td><strong>${s.results?.abdominales || 'N/A'} reps</strong></td>
+            <td><span class="pct-badge">${s.evaluation?.percentiles?.abdominales || 0}%</span></td>
+          </tr>
+          <tr>
+            <td>Fuerza Inferior (Salto Longitud)</td>
+            <td><strong>${s.results?.salto || 'N/A'} cm</strong></td>
+            <td><span class="pct-badge">${s.evaluation?.percentiles?.salto || 0}%</span></td>
+          </tr>
+          <tr>
+            <td>Resistencia (Carrera ${resistenciaPruebaName})</td>
+            <td><strong>${s.results?.resistencia || 'N/A'} min</strong></td>
+            <td><span class="pct-badge">${s.evaluation?.percentiles?.resistencia || 0}%</span></td>
+          </tr>
+          <tr>
+            <td>Flexibilidad (Sit & Reach)</td>
+            <td><strong>${s.results?.flexibilidad || 'N/A'} cm</strong></td>
+            <td><span style="font-size: 8px; color: #666; font-weight: bold; text-transform: uppercase;">Prueba Adicional</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="sec-title">4. Dictamen Final y Potencial Deportivo</div>
+      <div class="flex-dictamen">
+        <div class="score-box">
+          <div class="score-circle">
+            ${s.evaluation?.totalPoints || 0}
+            <span class="lbl">PUNTOS</span>
+          </div>
+          <div class="score-details">
+            <p class="title">Rendimiento Nacional</p>
+            <p class="val">${s.evaluation?.classification || 'Sin clasificación'}</p>
+            <div class="desc-box">
+              Puntos acumulados en base a baremos CONADE para edad de ${sAge} años y sexo ${formattedGender}.
+            </div>
+          </div>
+        </div>
+
+        <div class="details-box">
+          <div>
+            <span class="info-label" style="display: block; margin-bottom: 2px;">¿Presentó Talento por Estatura?</span>
+            ${talentTag}
+          </div>
+          <div>
+            <span class="info-label" style="display: block; margin-bottom: 2px;">Disciplinas Recomendadas</span>
+            <div class="disciplines-list">
+              ${recommendedSportsTags}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sigs">
+        <div>
+          <div class="sig-line"></div>
+          <p class="sig-name">${s.profesorEducacionFisica || 'Profesor de Educación Física'}</p>
+          <p class="sig-lbl">Docente Evaluador</p>
+        </div>
+        <div>
+          <div class="sig-line"></div>
+          <p class="sig-name">${s.entrenadorNombre || 'Evaluador General'}</p>
+          <p class="sig-lbl">Scout Certificado Conade</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+  };
+
   const printStudentReport = (s: SavedStudent) => {
     const iframeId = 'print-report-iframe';
     let iframe = document.getElementById(iframeId) as HTMLIFrameElement;
@@ -725,684 +1248,44 @@ export default function App() {
     iframe.style.zIndex = '-9999';
     document.body.appendChild(iframe);
     
-    const bYear = parseInt(s.fechaNacimiento?.año);
-    const sAge = !isNaN(bYear) ? new Date().getFullYear() - bYear : 0;
-    
     const doc = iframe.contentWindow?.document || iframe.contentDocument;
     if (!doc) return;
 
-    // Precompute variables for print report to avoid deep backtick nesting and escaping bugs
-    const fullName = `${s.primerNombre} ${s.segundoNombre || ''} ${s.primerApellido} ${s.segundoApellido || ''}`.trim();
-    const formattedGender = s.sexo === 'M' ? 'Masculino (M)' : 'Femenino (F)';
-    const formattedDob = `${s.fechaNacimiento?.dia}/${s.fechaNacimiento?.mes}/${s.fechaNacimiento?.año}`;
-    const fullAddress = `Col. ${s.direccion?.colonia || 'Sin datos'}, Ext. ${s.direccion?.numeroExterior || 'S/N'}, Int. ${s.direccion?.numeroInterior || 'S/N'}`;
-    const sportDetails = s.practicaDeporte + (s.deporteCual ? ` (${s.deporteCual})` : '');
-    const captureLugar = s.measurement?.lugar || s.escuela || 'Sede Principal';
-    const captureFecha = `${s.measurement?.fecha?.dia}/${s.measurement?.fecha?.mes}/${s.measurement?.fecha?.año}`;
-    const velocidadPruebaName = sAge <= 11 ? '30m' : '50m';
-    const resistenciaPruebaName = sAge <= 11 ? '600m' : '1000m';
-    const isHeightTalentClass = s.evaluation?.isTalentInHeight ? 'text-emerald-600' : 'text-guinda/40';
-    const isHeightTalentBullet = s.evaluation?.isTalentInHeight ? 'bg-emerald-500' : 'bg-guinda/20';
-    const isHeightTalentText = s.evaluation?.isTalentInHeight ? 'SÍ, DETECTADO CON TALENTO' : 'No clasificado por estatura';
-    const warmUpClass = s.cumplioCalentamiento === 'Sí' ? 'text-emerald-700' : 'text-rose-700';
+    const htmlContent = generateReportHTML(s);
+    const triggerPrintScript = `
+      <script>
+        window.onload = function() {
+          window.focus();
+          setTimeout(function() {
+            window.print();
+          }, 350);
+        };
+      </script>
+    `;
 
-    const recommendedSportsHTML = s.evaluation?.recommendedSports && s.evaluation.recommendedSports.length > 0
-      ? `<div class="flex flex-wrap gap-1">
-          ${s.evaluation.recommendedSports.map(sport => `
-            <span class="text-[8px] font-black bg-guinda text-white px-2 py-0.5 rounded border border-guinda-light">
-              ${sport}
-            </span>
-          `).join('')}
-         </div>`
-      : `<span class="text-xs font-bold text-guinda/30 italic">No disponible</span>`;
-    
     doc.open();
-    doc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Reporte Talent Lab - \${s.primerNombre} \${s.primerApellido}</title>
-          <meta charset="utf-8" />
-          <script src="https://cdn.tailwindcss.com"></script>
-          <script>
-            tailwind.config = {
-              theme: {
-                extend: {
-                  colors: {
-                    guinda: {
-                      DEFAULT: '#621132',
-                      light: '#98224e'
-                    },
-                    oro: {
-                      DEFAULT: '#D4C19C',
-                      light: '#f4f1ea'
-                    }
-                  }
-                }
-              }
-            }
-          </script>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-            body {
-              font-family: 'Inter', sans-serif;
-              background-color: white;
-              color: #1e293b;
-              margin: 0;
-              padding: 0;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            @media print {
-              @page {
-                size: letter;
-                margin: 1cm;
-              }
-              body {
-                background-color: white !important;
-              }
-            }
-          </style>
-        </head>
-        <body class="p-6">
-          <div class="max-w-4xl mx-auto space-y-6">
-            <!-- Official Header -->
-            <div class="flex flex-row justify-between items-center border-b-2 border-guinda pb-4 gap-4">
-              <div>
-                <span class="text-[9px] bg-guinda text-white px-2.5 py-0.5 rounded-full font-black tracking-widest uppercase">
-                  TALENT LAB MÉXICO
-                </span>
-                <h2 class="text-xl font-black text-guinda mt-1 uppercase tracking-tight">
-                  Boleta de Evaluación Física
-                </h2>
-                <p class="text-[10px] text-guinda/60 font-bold uppercase tracking-widest mt-0.5">
-                  SISTEMA NACIONAL DE DETECCIÓN DE TALENTOS DEPORTIVOS
-                </p>
-              </div>
-              
-              <div class="text-right flex flex-col items-end p-2.5 bg-oro-light border border-oro/30 rounded-2xl">
-                <p class="text-[8px] font-black text-guinda uppercase">Código de Scout</p>
-                <p class="text-xs font-mono font-bold text-guinda">SCT-2026-\${s.id.slice(0,6).toUpperCase()}</p>
-                <p class="text-[7px] text-guinda/40 mt-0.5">Gabinete de scouting estatal</p>
-              </div>
-            </div>
-
-            <!-- Grid 1: Personal and School information -->
-            <div class="grid grid-cols-2 gap-4">
-              <!-- Student profile card -->
-              <div class="bg-oro-light rounded-2xl p-4 border border-oro/20 space-y-3">
-                <h3 class="text-[10px] font-black text-guinda uppercase tracking-widest border-b border-oro/20 pb-1.5">
-                   1. Datos Generales del Alumno
-                </h3>
-                <div class="grid grid-cols-2 gap-y-2 gap-x-2 text-[11px]">
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Nombre Completo</p>
-                    <p class="font-extrabold text-guinda uppercase">
-                      \${s.primerNombre} \${s.segundoNombre || ''} \${s.primerApellido} \${s.segundoApellido || ''}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Sexo / Género</p>
-                    <p class="font-black text-guinda uppercase">
-                      \${s.sexo === 'M' ? 'Masculino (M)' : 'Femenino (F)'}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Fecha de Nacimiento</p>
-                    <p class="font-bold text-guinda">
-                      \${s.fechaNacimiento?.dia}/\${s.fechaNacimiento?.mes}/\${s.fechaNacimiento?.año}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Edad Calculada</p>
-                    <p class="font-black text-guinda">\${sAge} Años</p>
-                  </div>
-                  <div class="col-span-2">
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Domicilio</p>
-                    <p class="font-medium text-guinda uppercase">
-                      Col. \${s.direccion?.colonia || 'Sin datos'}, Ext. \${s.direccion?.numeroExterior || 'S/N'}, Int. \${s.direccion?.numeroInterior || 'S/N'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- School / Context card -->
-              <div class="bg-oro-light rounded-2xl p-4 border border-oro/20 space-y-3">
-                <h3 class="text-[10px] font-black text-guinda uppercase tracking-widest border-b border-oro/20 pb-1.5">
-                   2. Datos Institucionales y Deportivos
-                </h3>
-                <div class="grid grid-cols-2 gap-y-2 gap-x-2 text-[11px]">
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Escuela Primaria</p>
-                    <p class="font-extrabold text-guinda uppercase">
-                      \${s.escuela}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Turno Escolar</p>
-                    <p class="font-black text-guinda uppercase">\${s.turno || 'Sin Registrar'}</p>
-                  </div>
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Profesor de Educación Física</p>
-                    <p class="font-extrabold text-guinda uppercase">
-                      \${s.profesorEducacionFisica || 'No especificado'}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Fase Calentamiento</p>
-                    <p class="font-black uppercase \${s.cumplioCalentamiento === 'Sí' ? 'text-emerald-700' : 'text-rose-700'}">
-                      \${s.cumplioCalentamiento || 'Pendiente'}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">¿Practica Deporte?</p>
-                    <p class="font-extrabold text-guinda uppercase">
-                      ${sportDetails}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-[9px] text-guinda/50 uppercase font-bold">Entrenador Actual</p>
-                    <p class="font-bold text-guinda uppercase">\${s.entrenadorNombre || 'No definido'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Grid 2: Antropometria y Lugar -->
-            <div class="bg-guinda text-white rounded-2xl p-4 border border-oro/10 flex items-center justify-between gap-6">
-              <div>
-                <p class="text-[9px] text-oro font-bold uppercase tracking-widest">Sede y Fecha de Captura</p>
-                <p class="text-sm font-black uppercase mt-0.5">
-                  \${s.measurement?.lugar || s.escuela || 'Sede Principal'}
-                </p>
-                <p class="text-[9px] text-white/60">
-                  Fecha de aplicación: \${s.measurement?.fecha?.dia}/\${s.measurement?.fecha?.mes}/\${s.measurement?.fecha?.año}
-                </p>
-              </div>
-              
-              <div class="flex gap-6">
-                <div class="text-center bg-white/10 px-4 py-1.5 rounded-xl border border-white/10">
-                  <p class="text-[8px] text-oro font-black uppercase">Estatura</p>
-                  <p class="text-lg font-black">\${s.results?.estatura} <span class="text-xs font-medium">cm</span></p>
-                </div>
-                <div class="text-center bg-white/10 px-4 py-1.5 rounded-xl border border-white/10">
-                  <p class="text-[8px] text-oro font-black uppercase">Peso Corporal</p>
-                  <p class="text-lg font-black">\${s.results?.peso} <span class="text-xs font-medium">kg</span></p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Section 3: Batería de Pruebas Físicas (Results) -->
-            <div class="space-y-3">
-              <h3 class="text-[10px] font-black text-guinda uppercase tracking-widest flex items-center gap-2 border-b-2 border-oro pb-1.5">
-                 3. Resultados de la Batería de Pruebas Físicas
-              </h3>
-              
-              <div class="grid grid-cols-3 gap-3">
-                <!-- Velocidad -->
-                <div class="border border-oro/30 rounded-xl p-3 bg-oro-light/40 space-y-0.5">
-                  <p class="text-[8px] font-black text-guinda/60 uppercase">Velocidad (Carrera \${sAge <= 11 ? '30m' : '50m'})</p>
-                  <p class="text-xl font-black text-guinda">\${s.results?.velocidad || 'N/A'} <span class="text-xs font-bold text-guinda/60">s</span></p>
-                  <div class="flex justify-between items-center text-[9px] font-bold text-guinda/50 pt-1.5 border-t border-oro/20 mt-1.5">
-                    <span>Percentil:</span>
-                    <span class="font-black text-guinda text-xs bg-white px-1.5 py-0.5 rounded border border-oro/30">\${s.evaluation?.percentiles?.velocidad || 0}%</span>
-                  </div>
-                </div>
-
-                <!-- Lagartijas -->
-                <div class="border border-oro/30 rounded-xl p-3 bg-oro-light/40 space-y-0.5">
-                  <p class="text-[8px] font-black text-guinda/60 uppercase">Fuerza Superior (Lagartijas)</p>
-                  <p class="text-xl font-black text-guinda">\${s.results?.lagartijas || 'N/A'} <span class="text-xs font-bold text-guinda/60">reps</span></p>
-                  <div class="flex justify-between items-center text-[9px] font-bold text-guinda/50 pt-1.5 border-t border-oro/20 mt-1.5">
-                    <span>Percentil:</span>
-                    <span class="font-black text-guinda text-xs bg-white px-1.5 py-0.5 rounded border border-oro/30">\${s.evaluation?.percentiles?.lagartijas || 0}%</span>
-                  </div>
-                </div>
-
-                <!-- Abdominales -->
-                <div class="border border-oro/30 rounded-xl p-3 bg-oro-light/40 space-y-0.5">
-                  <p class="text-[8px] font-black text-guinda/60 uppercase">Fuerza Abdomen (Abdominales)</p>
-                  <p class="text-xl font-black text-guinda">\${s.results?.abdominales || 'N/A'} <span class="text-xs font-bold text-guinda/60 font-serif">reps</span></p>
-                  <div class="flex justify-between items-center text-[9px] font-bold text-guinda/50 pt-1.5 border-t border-oro/20 mt-1.5">
-                    <span>Percentil:</span>
-                    <span class="font-black text-guinda text-xs bg-white px-1.5 py-0.5 rounded border border-oro/30">\${s.evaluation?.percentiles?.abdominales || 0}%</span>
-                  </div>
-                </div>
-
-                <!-- Salto -->
-                <div class="border border-oro/30 rounded-xl p-3 bg-oro-light/40 space-y-0.5">
-                  <p class="text-[8px] font-black text-guinda/60 uppercase">Fuerza Inferior (Salto Longitud)</p>
-                  <p class="text-xl font-black text-guinda">\${s.results?.salto || 'N/A'} <span class="text-xs font-bold text-guinda/60 font-serif">cm</span></p>
-                  <div class="flex justify-between items-center text-[9px] font-bold text-guinda/50 pt-1.5 border-t border-oro/20 mt-1.5">
-                    <span>Percentil:</span>
-                    <span class="font-black text-guinda text-xs bg-white px-1.5 py-0.5 rounded border border-oro/30">\${s.evaluation?.percentiles?.salto || 0}%</span>
-                  </div>
-                </div>
-
-                <!-- Resistencia -->
-                <div class="border border-oro/30 rounded-xl p-3 bg-oro-light/40 space-y-0.5">
-                  <p class="text-[8px] font-black text-guinda/60 uppercase">Resistencia (Carrera \${sAge <= 11 ? '600m' : '1000m'})</p>
-                  <p class="text-xl font-black text-guinda">\${s.results?.resistencia || 'N/A'} <span class="text-xs font-bold text-guinda/60">min</span></p>
-                  <div class="flex justify-between items-center text-[9px] font-bold text-guinda/50 pt-1.5 border-t border-oro/20 mt-1.5">
-                    <span>Percentil:</span>
-                    <span class="font-black text-guinda text-xs bg-white px-1.5 py-0.5 rounded border border-oro/30">\${s.evaluation?.percentiles?.resistencia || 0}%</span>
-                  </div>
-                </div>
-
-                <!-- Flexibilidad -->
-                <div class="border border-oro/30 rounded-xl p-3 bg-oro-light/40 space-y-0.5">
-                  <p class="text-[8px] font-black text-guinda/60 uppercase">Flexibilidad (Sit & Reach)</p>
-                  <p class="text-xl font-black text-guinda">\${s.results?.flexibilidad || 'N/A'} <span class="text-xs font-bold text-guinda/60">cm</span></p>
-                  <div class="flex justify-between items-center text-[9px] font-bold text-guinda/50 pt-1.5 border-t border-oro/20 mt-1.5">
-                    <span>Prueba Adicional:</span>
-                    <span class="font-bold text-guinda text-[10px] bg-white px-1.5 py-0.5 rounded border border-oro/20">General</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Diagnostic and Sports Potential -->
-            <div class="bg-oro-light/30 rounded-[24px] p-5 border border-oro space-y-3">
-              <h3 class="text-[10px] font-black text-guinda uppercase tracking-widest flex items-center gap-2 border-b border-oro/20 pb-1.5">
-                4. Dictamen Final y Potencial de Talento Deportivo
-              </h3>
-              
-              <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-3">
-                  <div class="flex items-center gap-3">
-                    <div class="bg-guinda text-oro font-black text-xl w-12 h-12 rounded-xl flex items-center justify-center border border-oro/30 shadow-md shrink-0">
-                      \${s.evaluation?.totalPoints || 0}
-                    </div>
-                    <div>
-                      <p class="text-[9px] font-extrabold text-guinda/60 uppercase">Puntaje Total</p>
-                      <h4 class="text-sm font-black text-guinda uppercase leading-tight">
-                        Rendimiento: \${s.evaluation?.classification || 'Sin clasificación'}
-                      </h4>
-                    </div>
-                  </div>
-                  
-                  <div class="p-3 bg-white rounded-xl border border-oro/20 text-[10px] text-guinda/70 leading-relaxed font-semibold">
-                    Este alumno cuenta con \${s.evaluation?.totalPoints || 0} puntos en base a los baremos de evaluación de la CONADE para su grupo de edad y sexo. El dictamen determina un estatus de rendimiento general <span class="text-guinda font-extrabold uppercase">"\${s.evaluation?.classification || 'Regular'}"</span>.
-                  </div>
-                </div>
-
-                <div class="bg-white rounded-xl p-3 border border-oro/20 space-y-2 text-[10px]">
-                  <div>
-                    <p class="text-[9px] font-black text-guinda/60 uppercase">¿Presentó Talento por Estatura?</p>
-                    <p class="text-xs font-black uppercase mt-0.5 flex items-center gap-1.5 \${s.evaluation?.isTalentInHeight ? 'text-emerald-600' : 'text-guinda/40'}">
-                      <span class="w-2 h-2 rounded-full \${s.evaluation?.isTalentInHeight ? 'bg-emerald-500' : 'bg-guinda/20'}" />
-                      \${s.evaluation?.isTalentInHeight ? 'SÍ, DETECTADO CON TALENTO' : 'No clasificado por estatura'}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <p class="text-[9px] font-black text-guinda/60 uppercase pb-1">Disciplinas Deportivas Recomendadas</p>
-                    ${recommendedSportsHTML}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Signatures region for official look -->
-            <div class="grid grid-cols-2 gap-12 pt-8 border-t border-oro/30 text-center text-[10px]">
-              <div class="flex flex-col items-center">
-                <div class="w-40 h-px bg-guinda/40 mb-1 mt-4" />
-                <p class="font-extrabold text-guinda uppercase">\${s.profesorEducacionFisica || '_________________________'}</p>
-                <p class="text-[8px] text-guinda/50 uppercase font-bold">Firma de Profesor de Educación Física</p>
-              </div>
-              <div class="flex flex-col items-center">
-                <div class="w-40 h-px bg-guinda/40 mb-1 mt-4" />
-                <p class="font-extrabold text-guinda uppercase">\${s.entrenadorNombre || '_________________________'}</p>
-                <p class="text-[8px] text-guinda/50 uppercase font-bold">Firma Scout Evaluador Talent Lab</p>
-              </div>
-            </div>
-          </div>
-          
-          <script>
-            window.onload = function() {
-              window.focus();
-              setTimeout(function() {
-                window.print();
-              }, 600);
-            };
-          </script>
-        </body>
-      </html>
-    `);
+    doc.write(htmlContent.replace('</body>', triggerPrintScript + '</body>'));
     doc.close();
   };
 
   const downloadReportHTML = (s: SavedStudent) => {
-    const bYear = parseInt(s.fechaNacimiento?.año);
-    const sAge = !isNaN(bYear) ? new Date().getFullYear() - bYear : 0;
-
-    const sportDetails = s.practicaDeporte + (s.deporteCual ? ` (${s.deporteCual})` : '');
-    const recommendedSportsHTML = s.evaluation?.recommendedSports && s.evaluation.recommendedSports.length > 0
-      ? `<div class="flex flex-wrap gap-1">
-          ${s.evaluation.recommendedSports.map(sport => `
-            <span class="text-[9px] font-black bg-guinda text-white px-2 py-1 rounded-lg border border-guinda-light">
-              ${sport}
-            </span>
-          `).join('')}
-         </div>`
-      : `<span class="text-xs font-bold text-guinda/30 italic">No disponible</span>`;
-    
-    const htmlContent = `<!DOCTYPE html>
-<html>
-  <head>
-    <title>Reporte_TalentLab_\${s.primerNombre}_\${s.primerApellido}</title>
-    <meta charset="utf-8" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              guinda: {
-                DEFAULT: '#621132',
-                light: '#98224e'
-              },
-              oro: {
-                DEFAULT: '#D4C19C',
-                light: '#f4f1ea'
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: white;
-        color: #1e293b;
-        margin: 0;
-        padding: 0;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      @media print {
-        @page {
-          size: letter;
-          margin: 1.2cm;
-        }
-        body {
-          background-color: white !important;
-        }
-      }
-    </style>
-  </head>
-  <body class="p-8">
-    <div class="max-w-4xl mx-auto space-y-8">
-      <!-- Official Header -->
-      <div class="flex flex-row justify-between items-center border-b-2 border-guinda pb-6 gap-4">
-        <div>
-          <span class="text-[10px] bg-guinda text-white px-2.5 py-1 rounded-full font-black tracking-widest uppercase">
-            TALENT LAB MÉXICO
-          </span>
-          <h2 class="text-2xl font-black text-guinda mt-2 uppercase tracking-tight">
-            Boleta de Evaluación Física
-          </h2>
-          <p class="text-xs text-guinda/60 font-bold uppercase tracking-widest mt-0.5">
-            SISTEMA NACIONAL DE DETECCIÓN DE TALENTOS DEPORTIVOS
-          </p>
-        </div>
-        
-        <div class="text-right flex flex-col items-end p-3 bg-oro-light border border-oro/30 rounded-2xl">
-          <p class="text-[9px] font-black text-guinda uppercase">Código de Scout</p>
-          <p class="text-xs font-mono font-bold text-guinda">SCT-2026-\${s.id.slice(0,6).toUpperCase()}</p>
-          <p class="text-[8px] text-guinda/40 mt-1">Gabinete de scouting estatal</p>
-        </div>
-      </div>
-
-      <!-- Grid 1: Personal and School information -->
-      <div class="grid grid-cols-2 gap-6">
-        <!-- Student profile card -->
-        <div class="bg-oro-light rounded-3xl p-6 border border-oro/20 space-y-4">
-          <h3 class="text-xs font-black text-guinda uppercase tracking-widest border-b border-oro/20 pb-2">
-             1. Datos Generales del Alumno
-          </h3>
-          <div class="grid grid-cols-2 gap-y-3 gap-x-2 text-xs">
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Nombre Completo</p>
-              <p class="font-extrabold text-guinda text-sm uppercase">
-                \${s.primerNombre} \${s.segundoNombre || ''} \${s.primerApellido} \${s.segundoApellido || ''}
-              </p>
-            </div>
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Sexo / Género</p>
-              <p class="font-black text-guinda uppercase">
-                \${s.sexo === 'M' ? 'Masculino (M)' : 'Femenino (F)'}
-              </p>
-            </div>
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Fecha de Nacimiento</p>
-              <p class="font-bold text-guinda">
-                \${s.fechaNacimiento?.dia}/\${s.fechaNacimiento?.mes}/\${s.fechaNacimiento?.año}
-              </p>
-            </div>
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Edad Calculada</p>
-              <p class="font-black text-guinda">\${sAge} Años</p>
-            </div>
-            <div class="col-span-2">
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Domicilio</p>
-              <p class="font-medium text-guinda uppercase">
-                Col. \${s.direccion?.colonia || 'Sin datos'}, Ext. \${s.direccion?.numeroExterior || 'S/N'}, Int. \${s.direccion?.numeroInterior || 'S/N'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- School / Context card -->
-        <div class="bg-oro-light rounded-3xl p-6 border border-oro/20 space-y-4">
-          <h3 class="text-xs font-black text-guinda uppercase tracking-widest border-b border-oro/20 pb-2">
-             2. Datos Institucionales y Deportivos
-          </h3>
-          <div class="grid grid-cols-2 gap-y-3 gap-x-2 text-xs">
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Escuela Primaria</p>
-              <p class="font-extrabold text-guinda uppercase text-sm">
-                \${s.escuela}
-              </p>
-            </div>
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Turno Escolar</p>
-              <p class="font-black text-guinda uppercase">\${s.turno || 'Sin Registrar'}</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Profesor de Educación Física</p>
-              <p class="font-extrabold text-guinda uppercase">
-                \${s.profesorEducacionFisica || 'No especificado'}
-              </p>
-            </div>
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Fase Calentamiento</p>
-              <p class="font-black uppercase \${s.cumplioCalentamiento === 'Sí' ? 'text-emerald-700' : 'text-rose-700'}">
-                \${s.cumplioCalentamiento || 'Pendiente'}
-              </p>
-            </div>
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">¿Practica Deporte?</p>
-              <p class="font-extrabold text-guinda uppercase">
-                ${sportDetails}
-              </p>
-            </div>
-            <div>
-              <p class="text-[10px] text-guinda/50 uppercase font-bold">Entrenador Actual</p>
-              <p class="font-bold text-guinda uppercase">\${s.entrenadorNombre || 'No definido'}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Grid 2: Antropometria y Lugar -->
-      <div class="bg-guinda text-white rounded-3xl p-6 border border-oro/10 flex items-center justify-between gap-6">
-        <div>
-          <p class="text-[10px] text-oro font-bold uppercase tracking-widest">Sede y Fecha de Captura</p>
-          <p class="text-base font-black uppercase mt-1">
-            \${s.measurement?.lugar || s.escuela || 'Sede Sencilla'}
-          </p>
-          <p class="text-[10px] text-white/60">
-            Fecha de aplicación: \${s.measurement?.fecha?.dia}/\${s.measurement?.fecha?.mes}/\${s.measurement?.fecha?.año}
-          </p>
-        </div>
-        
-        <div class="flex gap-8">
-          <div class="text-center bg-white/10 px-6 py-2 rounded-2xl border border-white/10">
-            <p class="text-[9px] text-oro font-black uppercase">Estatura</p>
-            <p class="text-xl font-black">\${s.results?.estatura} <span class="text-sm font-medium">cm</span></p>
-          </div>
-          <div class="text-center bg-white/10 px-6 py-2 rounded-2xl border border-white/10">
-            <p class="text-[9px] text-oro font-black uppercase">Peso Corporal</p>
-            <p class="text-xl font-black">\${s.results?.peso} <span class="text-sm font-medium">kg</span></p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Section 3: Batería de Pruebas Físicas (Results) -->
-      <div class="space-y-4">
-        <h3 class="text-xs font-black text-guinda uppercase tracking-widest flex items-center gap-2 border-b-2 border-oro pb-2">
-           3. Resultados de la Batería de Pruebas Físicas
-        </h3>
-        
-        <div class="grid grid-cols-3 gap-4">
-          <!-- Velocidad -->
-          <div class="border border-oro/30 rounded-2xl p-4 bg-oro-light/40 space-y-1">
-            <p class="text-[9px] font-black text-guinda/60 uppercase">Velocidad (Carrera \${sAge <= 11 ? '30m' : '50m'})</p>
-            <p class="text-2xl font-black text-guinda">\${s.results?.velocidad || 'N/A'} <span class="text-xs font-bold text-guinda/60">s</span></p>
-            <div class="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/20 mt-2">
-              <span>Percentil:</span>
-              <span class="font-black text-guinda text-xs bg-white px-2 py-0.5 rounded-lg border border-oro/30">\${s.evaluation?.percentiles?.velocidad || 0}%</span>
-            </div>
-          </div>
-
-          <!-- Lagartijas -->
-          <div class="border border-oro/30 rounded-2xl p-4 bg-oro-light/40 space-y-1">
-            <p class="text-[9px] font-black text-guinda/60 uppercase">Fuerza Superior (Lagartijas)</p>
-            <p class="text-2xl font-black text-guinda">\${s.results?.lagartijas || 'N/A'} <span class="text-xs font-bold text-guinda/60">reps</span></p>
-            <div class="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/20 mt-2">
-              <span>Percentil:</span>
-              <span class="font-black text-guinda text-xs bg-white px-2 py-0.5 rounded-lg border border-oro/30">\${s.evaluation?.percentiles?.lagartijas || 0}%</span>
-            </div>
-          </div>
-
-          <!-- Abdominales -->
-          <div class="border border-oro/30 rounded-2xl p-4 bg-oro-light/40 space-y-1">
-            <p class="text-[9px] font-black text-guinda/60 uppercase">Fuerza Abdomen (Abdominales)</p>
-            <p class="text-2xl font-black text-guinda">\${s.results?.abdominales || 'N/A'} <span class="text-xs font-bold text-guinda/60 font-serif">reps</span></p>
-            <div class="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/20 mt-2">
-              <span>Percentil:</span>
-              <span class="font-black text-guinda text-xs bg-white px-2 py-0.5 rounded-lg border border-oro/30">\${s.evaluation?.percentiles?.abdominales || 0}%</span>
-            </div>
-          </div>
-
-          <!-- Salto -->
-          <div class="border border-oro/30 rounded-2xl p-4 bg-oro-light/40 space-y-1">
-            <p class="text-[9px] font-black text-guinda/60 uppercase">Fuerza Inferior (Salto Longitud)</p>
-            <p class="text-2xl font-black text-guinda">\${s.results?.salto || 'N/A'} <span class="text-xs font-bold text-guinda/60 font-serif">cm</span></p>
-            <div class="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/20 mt-2">
-              <span>Percentil:</span>
-              <span class="font-black text-guinda text-xs bg-white px-2 py-0.5 rounded-lg border border-oro/30">\${s.evaluation?.percentiles?.salto || 0}%</span>
-            </div>
-          </div>
-
-          <!-- Resistencia -->
-          <div class="border border-oro/30 rounded-2xl p-4 bg-oro-light/40 space-y-1">
-            <p class="text-[9px] font-black text-guinda/60 uppercase">Resistencia (Carrera \${sAge <= 11 ? '600m' : '1000m'})</p>
-            <p class="text-2xl font-black text-guinda">\${s.results?.resistencia || 'N/A'} <span class="text-xs font-bold text-guinda/60">min</span></p>
-            <div class="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/20 mt-2">
-              <span>Percentil:</span>
-              <span class="font-black text-guinda text-xs bg-white px-2 py-0.5 rounded-lg border border-oro/30">\${s.evaluation?.percentiles?.resistencia || 0}%</span>
-            </div>
-          </div>
-
-          <!-- Flexibilidad -->
-          <div class="border border-oro/30 rounded-2xl p-4 bg-oro-light/40 space-y-1">
-            <p class="text-[9px] font-black text-guinda/60 uppercase">Flexibilidad (Sit & Reach)</p>
-            <p class="text-2xl font-black text-guinda">\${s.results?.flexibilidad || 'N/A'} <span class="text-xs font-bold text-guinda/60">cm</span></p>
-            <div class="flex justify-between items-center text-[10px] font-bold text-guinda/50 pt-2 border-t border-oro/20 mt-2">
-              <span>Prueba Adicional:</span>
-              <span class="font-sans font-bold text-guinda text-xs bg-white px-2 py-0.5 rounded-md">General</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Diagnostic and Sports Potential -->
-      <div class="bg-oro-light/30 rounded-[30px] p-6 border-2 border-oro space-y-4">
-        <h3 class="text-xs font-black text-guinda uppercase tracking-widest flex items-center gap-2 border-b border-oro/20 pb-2">
-          4. Dictamen Final y Potencial de Talento Deportivo
-        </h3>
-        
-        <div class="grid grid-cols-2 gap-6">
-          <div class="space-y-4">
-            <div class="flex items-center gap-4">
-              <div class="bg-guinda text-oro font-black text-2xl w-14 h-14 rounded-2xl flex items-center justify-center border-2 border-oro/30 shadow-md shrink-0">
-                \${s.evaluation?.totalPoints || 0}
-              </div>
-              <div>
-                <p class="text-[10px] font-extrabold text-guinda/60 uppercase">Puntaje Total</p>
-                <h4 class="text-xl font-black text-guinda uppercase leading-tight tracking-tight">
-                  Rendimiento: \${s.evaluation?.classification || 'Sin clasificación'}
-                </h4>
-              </div>
-            </div>
-            
-            <div class="p-4 bg-white rounded-2xl border border-oro/15 text-xs text-guinda/70 leading-relaxed font-semibold">
-              Este alumno cuenta con \${s.evaluation?.totalPoints || 0} puntos en base a los baremos de evaluación de la CONADE para su grupo de edad y sexo. El dictamen determina un estatus de rendimiento general <span class="text-guinda font-extrabold uppercase">"\${s.evaluation?.classification || 'Mal'}"</span>.
-            </div>
-          </div>
-
-          <div class="bg-white rounded-2xl p-4 border border-oro/15 space-y-3">
-            <div>
-              <p class="text-[10px] font-black text-guinda/60 uppercase">¿Presentó Talento por Estatura?</p>
-              <p class="text-sm font-black uppercase mt-0.5 flex items-center gap-1.5 \${s.evaluation?.isTalentInHeight ? 'text-emerald-600' : 'text-guinda/40'}">
-                <span class="w-2.5 h-2.5 rounded-full \${s.evaluation?.isTalentInHeight ? 'bg-emerald-500' : 'bg-guinda/20'}" />
-                \${s.evaluation?.isTalentInHeight ? 'SÍ, DETECTADO CON TALENTO' : 'No clasificado por estatura'}
-              </p>
-            </div>
-            
-            <div>
-              <p class="text-[10px] font-black text-guinda/60 uppercase pb-1.5">Disciplinas Deportivas Recomendadas</p>
-              ${recommendedSportsHTML}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Signatures region for official look -->
-      <div class="grid grid-cols-2 gap-12 pt-12 border-t border-oro/20 text-center text-xs">
-        <div class="flex flex-col items-center">
-          <div class="w-48 h-px bg-guinda/40 mb-2 mt-8" />
-          <p class="font-extrabold text-guinda uppercase">\${s.profesorEducacionFisica || '_________________________'}</p>
-          <p class="text-[9px] text-guinda/50 uppercase font-bold">Firma de Profesor de Educación Física</p>
-        </div>
-        <div class="flex flex-col items-center">
-          <div class="w-48 h-px bg-guinda/40 mb-2 mt-8" />
-          <p class="font-extrabold text-guinda uppercase">\${s.entrenadorNombre || '_________________________'}</p>
-          <p class="text-[9px] text-guinda/50 uppercase font-bold">Firma Scout Evaluador Talent Lab</p>
-        </div>
-      </div>
-    </div>
-    
+    const htmlContent = generateReportHTML(s);
+    const triggerPrintScript = `
     <script>
       window.onload = function() {
         window.focus();
         setTimeout(function() {
           window.print();
-        }, 1000);
+        }, 500);
       };
     </script>
-  </body>
-</html>`;
-    
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    `;
+    const finalContent = htmlContent.replace('</body>', triggerPrintScript + '</body>');
+    const blob = new Blob([finalContent], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Reporte_CONADE_\${s.primerNombre}_\${s.primerApellido}.html`;
+    link.download = `Reporte_CONADE_${s.primerNombre}_${s.primerApellido}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
