@@ -1,12 +1,7 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import pkg from "pg";
-const { Pool } = pkg;
-// Suppress connection errors during start by lazy initializing
-import dotenv from "dotenv";
-
-dotenv.config();
+import { databaseReady, pool } from "./database.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -14,86 +9,27 @@ const PORT = 3000;
 
 app.use(express.json());
 
-// Initialize PG Pool if DATABASE_URL is present
-let pool: any = null;
-const dbUrl = process.env.DATABASE_URL;
-
-if (dbUrl) {
-  console.log("Initializing Postgres Pool with Neon DATABASE_URL...");
-  pool = new Pool({
-    connectionString: dbUrl,
-    ssl: {
-      rejectUnauthorized: false // Required for Neon SSL connection
-    }
-  });
-} else {
-  console.warn("⚠️ DATABASE_URL environment variable is missing. The app will fall back to local in-memory storage. Please set DATABASE_URL in AI Studio Secrets.");
+if (!pool) {
+  console.warn("DATABASE_URL is missing. Temporary in-memory storage is active.");
 }
 
 // In-Memory Fallbacks in case DATABASE_URL is not set yet
 let memoryStudents: any[] = [];
-let memoryTeachers: string[] = ['Juan Pérez', 'María Rodríguez', 'Carlos Gómez', 'Ana Martínez'];
+let memoryTeachers: string[] = ['Prof. Juan Pérez', 'Profa. María Gómez', 'Prof. Carlos Ruiz'];
 let memorySchools: string[] = ['Miguel Hidalgo', 'Benito Juárez', 'Ignacio Zaragoza', 'Niños Héroes'];
 
-// Auto-initialize DB tables if connected
-async function initDb() {
-  if (!pool) return;
+app.use("/api", async (_req, res, next) => {
   try {
-    const client = await pool.connect();
-    console.log("⚡ Connected to Neon PostgreSQL successfully! Running migrations...");
-    
-    // Create students table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS students (
-        id VARCHAR(50) PRIMARY KEY,
-        primer_nombre VARCHAR(100),
-        segundo_nombre VARCHAR(100),
-        primer_apellido VARCHAR(100),
-        segundo_apellido VARCHAR(100),
-        sexo VARCHAR(10),
-        fecha_nacimiento JSONB,
-        escuela VARCHAR(255),
-        turno VARCHAR(50),
-        direccion JSONB,
-        profesor_educacion_fisica VARCHAR(255),
-        practica_deporte VARCHAR(10),
-        deporte_cual VARCHAR(100),
-        entrenador_nombre VARCHAR(255),
-        cumplio_calentamiento VARCHAR(10),
-        measurement JSONB,
-        results JSONB,
-        evaluation JSONB,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Create teachers table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS teachers (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) UNIQUE,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Create schools table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS schools (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) UNIQUE,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    client.release();
-    console.log("✅ Neon Database migrations verified and table structure is ready.");
+    await databaseReady;
+    next();
   } catch (error) {
-    console.error("❌ Failed to run Neon database migrations:", error);
+    console.error("Database initialization failed:", error);
+    res.status(503).json({
+      error: "Database is not ready",
+      message: "No fue posible conectar con PostgreSQL.",
+    });
   }
-}
-
-// Run DB init
-initDb();
+});
 
 // --- API ROUTES ---
 
@@ -164,58 +100,45 @@ app.post("/api/students", async (req, res) => {
   }
 
   try {
-    // Check if student exists
-    const checkEx = await pool.query("SELECT id FROM students WHERE id = $1", [s.id]);
-    if (checkEx.rows.length > 0) {
-      // Update
-      await pool.query(`
-        UPDATE students SET 
-          primer_nombre = $1,
-          segundo_nombre = $2,
-          primer_apellido = $3,
-          segundo_apellido = $4,
-          sexo = $5,
-          fecha_nacimiento = $6,
-          escuela = $7,
-          turno = $8,
-          direccion = $9,
-          profesor_educacion_fisica = $10,
-          practica_deporte = $11,
-          deporte_cual = $12,
-          entrenador_nombre = $13,
-          cumplio_calentamiento = $14,
-          measurement = $15,
-          results = $16,
-          evaluation = $17
-        WHERE id = $18
-      `, [
-        s.primerNombre, s.segundoNombre, s.primerApellido, s.segundoApellido,
-        s.sexo, JSON.stringify(s.fechaNacimiento), s.escuela, s.turno,
-        JSON.stringify(s.direccion), s.profesorEducacionFisica, s.practicaDeporte,
-        s.deporteCual, s.entrenadorNombre, s.cumplioCalentamiento,
-        JSON.stringify(s.measurement), JSON.stringify(s.results),
-        JSON.stringify(s.evaluation), s.id
-      ]);
-    } else {
-      // Insert
-      await pool.query(`
-        INSERT INTO students (
-          id, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
-          sexo, fecha_nacimiento, escuela, turno, direccion,
-          profesor_educacion_fisica, practica_deporte, deporte_cual,
-          entrenador_nombre, cumplio_calentamiento, measurement, results, evaluation
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
-        )
-      `, [
-        s.id, s.primerNombre, s.segundoNombre, s.primerApellido, s.segundoApellido,
-        s.sexo, JSON.stringify(s.fechaNacimiento), s.escuela, s.turno,
-        JSON.stringify(s.direccion), s.profesorEducacionFisica, s.practicaDeporte,
-        s.deporteCual, s.entrenadorNombre, s.cumplioCalentamiento,
-        JSON.stringify(s.measurement), JSON.stringify(s.results),
-        JSON.stringify(s.evaluation)
-      ]);
-    }
+    await pool.query(`
+      INSERT INTO students (
+        id, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido,
+        sexo, fecha_nacimiento, escuela, turno, direccion,
+        profesor_educacion_fisica, practica_deporte, deporte_cual,
+        entrenador_nombre, cumplio_calentamiento, measurement, results,
+        evaluation, created_by, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+        $15, $16, $17, $18, $19, CURRENT_TIMESTAMP
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        primer_nombre = EXCLUDED.primer_nombre,
+        segundo_nombre = EXCLUDED.segundo_nombre,
+        primer_apellido = EXCLUDED.primer_apellido,
+        segundo_apellido = EXCLUDED.segundo_apellido,
+        sexo = EXCLUDED.sexo,
+        fecha_nacimiento = EXCLUDED.fecha_nacimiento,
+        escuela = EXCLUDED.escuela,
+        turno = EXCLUDED.turno,
+        direccion = EXCLUDED.direccion,
+        profesor_educacion_fisica = EXCLUDED.profesor_educacion_fisica,
+        practica_deporte = EXCLUDED.practica_deporte,
+        deporte_cual = EXCLUDED.deporte_cual,
+        entrenador_nombre = EXCLUDED.entrenador_nombre,
+        cumplio_calentamiento = EXCLUDED.cumplio_calentamiento,
+        measurement = EXCLUDED.measurement,
+        results = EXCLUDED.results,
+        evaluation = EXCLUDED.evaluation,
+        created_by = COALESCE(students.created_by, EXCLUDED.created_by),
+        updated_at = CURRENT_TIMESTAMP
+    `, [
+      s.id, s.primerNombre || "", s.segundoNombre || "", s.primerApellido || "",
+      s.segundoApellido || "", s.sexo || "", s.fechaNacimiento || {}, s.escuela || "",
+      s.turno || "", s.direccion || {}, s.profesorEducacionFisica || "",
+      s.practicaDeporte || "", s.deporteCual || "", s.entrenadorNombre || "",
+      s.cumplioCalentamiento || "", s.measurement || null, s.results || {},
+      s.evaluation || null, s.createdBy || null,
+    ]);
     res.json({ success: true, student: s });
   } catch (err: any) {
     console.error("Error saving student to Neon:", err);
@@ -245,11 +168,7 @@ app.get("/api/teachers", async (req, res) => {
   }
   try {
     const result = await pool.query("SELECT name FROM teachers ORDER BY created_at ASC");
-    const dbItems = result.rows.map((r: any) => r.name);
-    // Combine with default values securely
-    const defaults = ['Juan Pérez', 'María Rodríguez', 'Carlos Gómez', 'Ana Martínez'];
-    const combined = Array.from(new Set([...defaults, ...dbItems]));
-    res.json(combined);
+    res.json(result.rows.map((row: any) => row.name));
   } catch (err: any) {
     console.error("Error reading teachers from Neon:", err);
     res.status(500).json({ error: err.message });
@@ -287,10 +206,7 @@ app.get("/api/schools", async (req, res) => {
   }
   try {
     const result = await pool.query("SELECT name FROM schools ORDER BY created_at ASC");
-    const dbItems = result.rows.map((r: any) => r.name);
-    const defaults = ['Miguel Hidalgo', 'Benito Juárez', 'Ignacio Zaragoza', 'Niños Héroes'];
-    const combined = Array.from(new Set([...defaults, ...dbItems]));
-    res.json(combined);
+    res.json(result.rows.map((row: any) => row.name));
   } catch (err: any) {
     console.error("Error reading schools from Neon:", err);
     res.status(500).json({ error: err.message });
